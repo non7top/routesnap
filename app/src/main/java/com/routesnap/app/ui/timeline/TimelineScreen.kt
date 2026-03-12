@@ -134,13 +134,14 @@ private fun TimelineContent(
                 }
 
                 items(
-                    items = cluster.segmentIndices,
-                    key = { it }
+                    count = cluster.segmentIndices.size,
+                    key = { cluster.segmentIndices[it] }
                 ) { index ->
+                    val segmentIndex = cluster.segmentIndices[index]
                     TimelineItem(
-                        segment = segments[index],
-                        index = index,
-                        onRemove = { onRemoveSegment(segments[index]) }
+                        segment = segments[segmentIndex],
+                        index = segmentIndex,
+                        onRemove = { onRemoveSegment(segments[segmentIndex]) }
                     )
                 }
             }

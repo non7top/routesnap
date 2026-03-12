@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
-import androidx.activity.result.contract.ActivityResultContracts.PickVisualMediaRequest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -40,7 +39,7 @@ fun PhotoPickerScreen(
 
     // Photo Picker launcher
     val pickMedia = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia()
+        contract = ActivityResultContracts.PickMultipleVisualMedia(PickVisualMedia.ImageAndVideo)
     ) { uris ->
         if (uris.isNotEmpty()) {
             viewModel.addSelectedUris(uris)
@@ -106,12 +105,12 @@ fun PhotoPickerScreen(
                 // Photo grid or empty state
                 if (uiState.selectedUris.isEmpty()) {
                     EmptyState(
-                        onPickPhotos = { pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageAndVideo)) }
+                        onPickPhotos = { pickMedia.launch(null) }
                     )
                 } else {
                     // Add more photos button
                     Button(
-                        onClick = { pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageAndVideo)) },
+                        onClick = { pickMedia.launch(null) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
