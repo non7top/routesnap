@@ -89,10 +89,12 @@ class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfi
                 val sorted = burstWindow.sortedByDescending { it.fileSize ?: 0 }
                 result.addAll(sorted.take(config.burstModeKeepCount))
             } else {
-                result.add(current)
+                // Not a burst: add all items in the window
+                result.addAll(burstWindow)
             }
 
-            i = if (burstWindow.size >= config.burstModeThreshold) j else i + 1
+            // Move to next unprocessed item
+            i = j
         }
 
         return result

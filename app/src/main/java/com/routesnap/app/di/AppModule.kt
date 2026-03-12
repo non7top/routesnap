@@ -45,4 +45,10 @@ object AppModule {
     ): TripRepository {
         return TripRepository(tripManifestDao, contentResolver)
     }
+
+    @Provides
+    @Singleton
+    fun provideStorageHelper(@ApplicationContext context: Context): StorageHelper {
+        return StorageHelper(context)
+    }
 }

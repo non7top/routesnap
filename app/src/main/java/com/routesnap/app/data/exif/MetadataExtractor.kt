@@ -23,10 +23,21 @@ data class MediaMetadata(
     val timestamp: Long?,
     val width: Int? = null,
     val height: Int? = null,
-    val fileSize: Long? = null
+    val fileSize: Long? = null,
+    val error: MetadataError? = null
 ) {
     val hasLocation: Boolean get() = latitude != null && longitude != null
-    val latLng: LatLng? get() = if (hasLocation) LatLng(latitude!!, longitude!!) else null
+    val latLng: LatLng? get() = latitude?.let { lat -> longitude?.let { lng -> LatLng(lat, lng) } }
+}
+
+/**
+ * Represents errors that can occur during metadata extraction
+ */
+sealed class MetadataError {
+    data class IoError(val message: String) : MetadataError()
+    data class ParseError(val message: String) : MetadataError()
+    data class SecurityError(val message: String) : MetadataError()
+    data class UnknownError(val message: String, val exception: Throwable) : MetadataError()
 }
 
 /**
@@ -62,13 +73,40 @@ class MetadataExtractor(private val contentResolver: ContentResolver) {
                     width = width,
                     height = height
                 )
-            } ?: MediaMetadata(uri = uri, latitude = null, longitude = null, timestamp = null)
+            } ?: MediaMetadata(
+                uri = uri,
+                latitude = null,
+                longitude = null,
+                timestamp = null,
+                error = MetadataError.IoError("Could not open input stream for $uri")
+            )
         } catch (e: IOException) {
             Log.e(TAG, "Error extracting EXIF metadata for $uri", e)
-            MediaMetadata(uri = uri, latitude = null, longitude = null, timestamp = null)
+            MediaMetadata(
+                uri = uri,
+                latitude = null,
+                longitude = null,
+                timestamp = null,
+                error = MetadataError.IoError("IO error: ${e.message ?: "Unknown IO error"}")
+            )
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Permission denied extracting metadata for $uri", e)
+            MediaMetadata(
+                uri = uri,
+                latitude = null,
+                longitude = null,
+                timestamp = null,
+                error = MetadataError.SecurityError("Permission denied: ${e.message}")
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected error extracting metadata for $uri", e)
-            MediaMetadata(uri = uri, latitude = null, longitude = null, timestamp = null)
+            MediaMetadata(
+                uri = uri,
+                latitude = null,
+                longitude = null,
+                timestamp = null,
+                error = MetadataError.UnknownError("Unexpected error: ${e.message ?: "Unknown error"}", e)
+            )
         }
     }
 
