@@ -2,11 +2,11 @@ name: Android CI/CD
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main", "master", "develop" ]
     tags:
       - 'v*'
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [ "main", "master", "develop" ]
 
 jobs:
   build:
