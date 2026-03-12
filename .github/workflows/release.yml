@@ -1,0 +1,78 @@
+name: Create Release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+      prerelease:
+        description: 'Mark as prerelease'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build Release APK
+      run: ./gradlew assembleRelease
+
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: routeSnap-release
+        path: app/build/outputs/apk/release/app-release-unsigned.apk
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ inputs.version }}
+        name: RouteSnap v${{ inputs.version }}
+        body: |
+          ## RouteSnap v${{ inputs.version }}
+
+          ### What's New
+          - Phase 1 MVP Release
+          - Photo picker with GPS metadata extraction
+          - Smart clustering by location and time
+          - Timeline review and editing
+          - Style selection (aspect ratio, templates)
+          - Video rendering pipeline (simulated in Phase 1)
+
+          ### Installation
+          1. Download the APK file below
+          2. Enable "Install from Unknown Sources" on your Android device
+          3. Install the APK and enjoy!
+
+          ### Requirements
+          - Android 8.0 (API 26) or higher
+          - 100MB free storage
+
+          ### Known Limitations (Phase 1)
+          - Video rendering is simulated
+          - Map animations coming in Phase 2
+          - Music selection is placeholder
+        files: |
+          app/build/outputs/apk/release/*.apk
+        draft: false
+        prerelease: ${{ inputs.prerelease }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

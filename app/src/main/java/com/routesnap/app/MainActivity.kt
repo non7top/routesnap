@@ -1,0 +1,109 @@
+package com.routesnap.app
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.routesnap.app.ui.picker.PhotoPickerScreen
+import com.routesnap.app.ui.style.StyleScreen
+import com.routesnap.app.ui.timeline.TimelineScreen
+import com.routesnap.app.ui.theme.RouteSnapTheme
+import dagger.hilt.android.AndroidEntryPoint
+
+/**
+ * Main Activity - Entry point for the app
+ */
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            RouteSnapTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    RouteSnapNavGraph()
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Navigation graph for the app
+ */
+@Composable
+fun RouteSnapNavGraph() {
+    val navController = rememberNavController()
+
+    NavHost(
+        navController = navController,
+        startDestination = "picker"
+    ) {
+        composable("picker") {
+            PhotoPickerScreen(
+                onNavigateToTimeline = { tripId ->
+                    navController.navigate("timeline/$tripId")
+                }
+            )
+        }
+
+        composable(
+            route = "timeline/{tripId}",
+            arguments = androidx.navigation.navArgument("tripId") {
+                nullable = true
+            }
+        ) { backStackEntry ->
+            val tripId = backStackEntry.arguments?.getString("tripId")
+            TimelineScreen(
+                tripId = tripId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToStyle = { navController.navigate("style/$tripId") }
+            )
+        }
+
+        composable(
+            route = "style/{tripId}",
+            arguments = androidx.navigation.navArgument("tripId") {
+                nullable = true
+            }
+        ) { backStackEntry ->
+            val tripId = backStackEntry.arguments?.getString("tripId")
+            StyleScreen(
+                tripId = tripId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToRender = { navController.navigate("render/$tripId") }
+            )
+        }
+
+        composable(
+            route = "render/{tripId}",
+            arguments = androidx.navigation.navArgument("tripId") {
+                nullable = true
+            }
+        ) { backStackEntry ->
+            val tripId = backStackEntry.arguments?.getString("tripId")
+            RenderScreen(
+                tripId = tripId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToShare = { navController.navigate("share") }
+            )
+        }
+
+        composable("share") {
+            ShareScreen(
+                onNavigateHome = {
+                    navController.popBackStack("picker", inclusive = false)
+                }
+            )
+        }
+    }
+}
