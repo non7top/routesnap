@@ -123,7 +123,7 @@ fun RenderScreen(
                     // Progress indicator
                     if (uiState.isRendering || uiState.isComplete) {
                         CircularProgressIndicator(
-                            progress = { uiState.progress / 100f },
+                            progress = uiState.progress / 100f,
                             modifier = Modifier.size(120.dp),
                             strokeWidth = 8.dp
                         )

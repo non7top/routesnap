@@ -133,7 +133,10 @@ private fun TimelineContent(
                     ClusterHeader(clusterName = cluster.name)
                 }
 
-                items(cluster.segmentIndices) { index ->
+                items(
+                    items = cluster.segmentIndices,
+                    key = { it }
+                ) { index ->
                     TimelineItem(
                         segment = segments[index],
                         index = index,

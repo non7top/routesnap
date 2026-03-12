@@ -285,6 +285,7 @@ private fun TemplateSelector(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MusicSelector(
     musicSelected: Boolean,

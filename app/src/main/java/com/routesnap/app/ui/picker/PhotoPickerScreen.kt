@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
+import androidx.activity.result.contract.ActivityResultContracts.PickVisualMediaRequest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -105,12 +106,12 @@ fun PhotoPickerScreen(
                 // Photo grid or empty state
                 if (uiState.selectedUris.isEmpty()) {
                     EmptyState(
-                        onPickPhotos = { pickMedia.launch(PickVisualMedia.ImageAndVideo) }
+                        onPickPhotos = { pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageAndVideo)) }
                     )
                 } else {
                     // Add more photos button
                     Button(
-                        onClick = { pickMedia.launch(PickVisualMedia.ImageAndVideo) },
+                        onClick = { pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageAndVideo)) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
