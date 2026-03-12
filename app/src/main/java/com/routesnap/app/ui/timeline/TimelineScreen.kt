@@ -43,6 +43,7 @@ data class TimelineCluster(
 /**
  * Timeline Screen - Review and reorder photos
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimelineScreen(
     tripId: String?,

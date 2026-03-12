@@ -31,6 +31,7 @@ data class RenderUiState(
 /**
  * Render Screen - Show rendering progress
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RenderScreen(
     tripId: String?,

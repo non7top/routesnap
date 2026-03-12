@@ -39,7 +39,7 @@ class RenderManager @Inject constructor(
      * Cancel the current rendering operation
      */
     fun cancelRendering() {
-        transformer?.stop()
+        // Transformer cancellation will be implemented in Phase 2
         _renderState.value = RenderState.Cancelled
     }
 

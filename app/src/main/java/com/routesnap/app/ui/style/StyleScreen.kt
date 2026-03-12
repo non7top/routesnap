@@ -33,6 +33,7 @@ data class StyleUiState(
 /**
  * Style Screen - Select aspect ratio, template, and music
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StyleScreen(
     tripId: String?,

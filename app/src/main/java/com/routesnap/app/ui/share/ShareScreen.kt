@@ -16,6 +16,7 @@ import com.routesnap.app.ui.theme.RouteSnapTheme
 /**
  * Share Screen - Share or save the rendered video
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShareScreen(
     onNavigateHome: () -> Unit
