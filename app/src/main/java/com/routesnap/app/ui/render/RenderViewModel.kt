@@ -6,7 +6,6 @@ import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.util.StorageHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.coroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -59,7 +58,6 @@ class RenderViewModel @Inject constructor(
                     progress = 10
                 )
                 delay(500)
-                if (!coroutineContext.isActive) return@launch
 
                 // Phase 2: Processing photos
                 _uiState.value = _uiState.value.copy(
@@ -67,7 +65,6 @@ class RenderViewModel @Inject constructor(
                     progress = 25
                 )
                 delay(800)
-                if (!coroutineContext.isActive) return@launch
 
                 // Phase 3: Generating map animations
                 _uiState.value = _uiState.value.copy(
@@ -75,7 +72,6 @@ class RenderViewModel @Inject constructor(
                     progress = 50
                 )
                 delay(1000)
-                if (!coroutineContext.isActive) return@launch
 
                 // Phase 4: Compositing video
                 _uiState.value = _uiState.value.copy(
@@ -83,7 +79,6 @@ class RenderViewModel @Inject constructor(
                     progress = 75
                 )
                 delay(800)
-                if (!coroutineContext.isActive) return@launch
 
                 // Phase 5: Finalizing
                 _uiState.value = _uiState.value.copy(
@@ -91,7 +86,6 @@ class RenderViewModel @Inject constructor(
                     progress = 90
                 )
                 delay(400)
-                if (!coroutineContext.isActive) return@launch
 
                 // Complete - use proper storage API instead of hardcoded path
                 val outputFile = storageHelper.createOutputFile(trip.name)
