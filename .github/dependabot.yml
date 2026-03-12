@@ -1,0 +1,80 @@
+version: 2
+updates:
+  # Enable version updates for Gradle
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "automerge"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    reviewers:
+      - "non7top"
+    ignore:
+      # Ignore major version updates for stability
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci/cd"
+      - "automerge"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    reviewers:
+      - "non7top"
+
+  # Enable version updates for Kotlin
+  - package-ecosystem: "gradle"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "kotlin"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    reviewers:
+      - "non7top"
+    groups:
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin:*"
+          - "kotlinx-*"
+      compose:
+        patterns:
+          - "androidx.compose:*"
+          - "androidx.activity:activity-compose"
+          - "androidx.lifecycle:*-compose"
+      media3:
+        patterns:
+          - "androidx.media3:*"
+      hilt:
+        patterns:
+          - "com.google.dagger:hilt*"
+          - "androidx.hilt:*"
+      room:
+        patterns:
+          - "androidx.room:*"
