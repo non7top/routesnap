@@ -3,11 +3,11 @@ package com.routesnap.app.data.repository
 import android.content.ContentResolver
 import android.net.Uri
 import android.util.Log
+import com.routesnap.app.data.exif.MediaMetadata
 import com.routesnap.app.data.exif.MetadataExtractor
 import com.routesnap.app.data.local.TripManifestDao
 import com.routesnap.app.data.local.TripManifestEntity
 import com.routesnap.app.domain.clustering.ClusteringAlgorithm
-import com.routesnap.app.domain.model.MediaMetadata
 import com.routesnap.app.domain.model.RenderStatus
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment

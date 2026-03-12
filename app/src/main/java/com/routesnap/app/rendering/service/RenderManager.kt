@@ -19,7 +19,7 @@ class RenderManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val tripRepository: TripRepository
 ) {
-    private val _renderState = MutableStateFlow(RenderState.Idle)
+    private val _renderState = MutableStateFlow<RenderState>(RenderState.Idle)
     val renderState: StateFlow<RenderState> = _renderState.asStateFlow()
 
     private var transformer: Transformer? = null
@@ -39,7 +39,7 @@ class RenderManager @Inject constructor(
      * Cancel the current rendering operation
      */
     fun cancelRendering() {
-        transformer?.abort()
+        transformer?.stop()
         _renderState.value = RenderState.Cancelled
     }
 
