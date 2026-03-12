@@ -114,13 +114,13 @@ class MetadataExtractor(private val contentResolver: ContentResolver) {
     private fun extractDimensions(exif: ExifInterface): Pair<Int?, Int?> {
         val width = exif.getAttributeInt(
             ExifInterface.TAG_IMAGE_WIDTH,
-            ExifInterface.VALUE_ORIGINAL_DEFAULT
-        ).takeIf { it != ExifInterface.VALUE_ORIGINAL_DEFAULT }
+            -1
+        ).takeIf { it != -1 }
 
         val height = exif.getAttributeInt(
             ExifInterface.TAG_IMAGE_LENGTH,
-            ExifInterface.VALUE_ORIGINAL_DEFAULT
-        ).takeIf { it != ExifInterface.VALUE_ORIGINAL_DEFAULT }
+            -1
+        ).takeIf { it != -1 }
 
         return Pair(width, height)
     }

@@ -6,11 +6,16 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.routesnap.app.ui.picker.PhotoPickerScreen
+import com.routesnap.app.ui.render.RenderScreen
+import com.routesnap.app.ui.share.ShareScreen
 import com.routesnap.app.ui.style.StyleScreen
 import com.routesnap.app.ui.timeline.TimelineScreen
 import com.routesnap.app.ui.theme.RouteSnapTheme
@@ -58,9 +63,13 @@ fun RouteSnapNavGraph() {
 
         composable(
             route = "timeline/{tripId}",
-            arguments = androidx.navigation.navArgument("tripId") {
-                nullable = true
-            }
+            arguments = listOf(
+                navArgument("tripId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
         ) { backStackEntry ->
             val tripId = backStackEntry.arguments?.getString("tripId")
             TimelineScreen(
@@ -72,9 +81,13 @@ fun RouteSnapNavGraph() {
 
         composable(
             route = "style/{tripId}",
-            arguments = androidx.navigation.navArgument("tripId") {
-                nullable = true
-            }
+            arguments = listOf(
+                navArgument("tripId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
         ) { backStackEntry ->
             val tripId = backStackEntry.arguments?.getString("tripId")
             StyleScreen(
@@ -86,9 +99,13 @@ fun RouteSnapNavGraph() {
 
         composable(
             route = "render/{tripId}",
-            arguments = androidx.navigation.navArgument("tripId") {
-                nullable = true
-            }
+            arguments = listOf(
+                navArgument("tripId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
         ) { backStackEntry ->
             val tripId = backStackEntry.arguments?.getString("tripId")
             RenderScreen(
