@@ -5,6 +5,9 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// Support version name override from CI (e.g., for PR builds)
+val versionNameOverride: String? by project
+
 android {
     namespace = "com.routesnap.app"
     compileSdk = 34
@@ -14,7 +17,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = versionNameOverride ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
