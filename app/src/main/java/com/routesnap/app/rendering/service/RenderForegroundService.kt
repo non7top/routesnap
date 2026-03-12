@@ -105,14 +105,10 @@ class RenderForegroundService : Service() {
     /**
      * Update the notification progress
      */
+    @Suppress("NotificationPermission")
     fun updateProgress(progress: Int, status: String) {
         val notification = createNotification(progress, status)
         val notificationManager = getSystemService(NotificationManager::class.java)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
-            android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationManager.notify(NOTIFICATION_ID, notification)
-        }
+        notificationManager.notify(NOTIFICATION_ID, notification)
     }
 }
