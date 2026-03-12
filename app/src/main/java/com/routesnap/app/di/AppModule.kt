@@ -5,6 +5,7 @@ import android.content.Context
 import com.routesnap.app.data.local.RouteSnapDatabase
 import com.routesnap.app.data.local.TripManifestDao
 import com.routesnap.app.data.repository.TripRepository
+import com.routesnap.app.util.StorageHelper
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
