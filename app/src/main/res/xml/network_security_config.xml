@@ -4,7 +4,6 @@
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
-            <certificates src="user" />
         </trust-anchors>
     </base-config>
 
@@ -14,10 +13,5 @@
         <domain includeSubdomains="true">demotiles.maplibre.org</domain>
         <!-- OpenStreetMap tiles (uses HTTPS) -->
         <domain includeSubdomains="true">tile.openstreetmap.org</domain>
-
-        <!-- Pin certificates for additional security -->
-        <pin-set expiration="2027-01-01">
-            <pin digest="SHA-256">base64-encoded-pin-here</pin>
-        </pin-set>
     </domain-config>
 </network-security-config>
