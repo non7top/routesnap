@@ -101,7 +101,7 @@ fun RenderScreen(
                     if (uiState.error != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = uiState.error,
+                            text = uiState.error!!,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error
                         )
