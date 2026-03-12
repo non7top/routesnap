@@ -39,7 +39,7 @@ fun PhotoPickerScreen(
 
     // Photo Picker launcher
     val pickMedia = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(PickVisualMedia.ImageAndVideo)
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 50)
     ) { uris ->
         if (uris.isNotEmpty()) {
             viewModel.addSelectedUris(uris)
@@ -105,12 +105,12 @@ fun PhotoPickerScreen(
                 // Photo grid or empty state
                 if (uiState.selectedUris.isEmpty()) {
                     EmptyState(
-                        onPickPhotos = { pickMedia.launch(null) }
+                        onPickPhotos = { pickMedia.launch(PickVisualMedia.ImageAndVideo) }
                     )
                 } else {
                     // Add more photos button
                     Button(
-                        onClick = { pickMedia.launch(null) },
+                        onClick = { pickMedia.launch(PickVisualMedia.ImageAndVideo) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
