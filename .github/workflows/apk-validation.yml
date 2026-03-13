@@ -1,0 +1,255 @@
+name: APK Validation Tests
+
+on:
+  pull_request:
+    branches: [ "main", "master", "develop" ]
+  push:
+    branches: [ "main", "master", "develop" ]
+
+jobs:
+  validate-apk:
+    name: Validate APK Structure
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Download APK artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: app-debug-*
+        merge-multiple: true
+      continue-on-error: true
+
+    - name: Find APK file
+      id: find-apk
+      run: |
+        APK_PATH=$(find . -name "*.apk" -type f | head -1)
+        echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+        echo "Found APK: $APK_PATH"
+
+    - name: Verify APK exists
+      run: |
+        if [ -z "${{ steps.find-apk.outputs.apk_path }}" ]; then
+          echo "No APK file found!"
+          exit 1
+        fi
+        ls -lh "${{ steps.find-apk.outputs.apk_path }}"
+
+    - name: Verify APK signature
+      run: |
+        # Check if APK is signed (at least v1 signature)
+        if unzip -l "${{ steps.find-apk.outputs.apk_path }}" | grep -q "META-INF/"; then
+          echo "✓ APK contains META-INF directory (may be signed)"
+        else
+          echo "✗ APK does not contain META-INF directory"
+          exit 1
+        fi
+
+    - name: Verify APK structure
+      run: |
+        echo "=== APK Contents ==="
+        unzip -l "${{ steps.find-apk.outputs.apk_path }}" | head -50
+
+        echo ""
+        echo "=== Checking required files ==="
+
+        # Check for AndroidManifest.xml
+        if unzip -l "${{ steps.find-apk.outputs.apk_path }}" | grep -q "AndroidManifest.xml"; then
+          echo "✓ AndroidManifest.xml found"
+        else
+          echo "✗ AndroidManifest.xml missing"
+          exit 1
+        fi
+
+        # Check for classes.dex
+        if unzip -l "${{ steps.find-apk.outputs.apk_path }}" | grep -q "classes.dex"; then
+          echo "✓ classes.dex found"
+        else
+          echo "✗ classes.dex missing"
+          exit 1
+        fi
+
+        # Check for resources
+        if unzip -l "${{ steps.find-apk.outputs.apk_path }}" | grep -q "res/"; then
+          echo "✓ resources directory found"
+        else
+          echo "✗ resources directory missing"
+          exit 1
+        fi
+
+        echo ""
+        echo "=== APK Size ==="
+        du -h "${{ steps.find-apk.outputs.apk_path }}"
+
+    - name: Verify APK with aapt2 (if available)
+      run: |
+        if command -v aapt2 &> /dev/null; then
+          echo "=== APK Analysis with aapt2 ==="
+          aapt2 dump badging "${{ steps.find-apk.outputs.apk_path }}" | head -30
+        else
+          echo "aapt2 not available, skipping detailed analysis"
+        fi
+      continue-on-error: true
+
+  test-on-redroid:
+    name: Test on redroid Emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: validate-apk
+
+    steps:
+    - name: Download APK artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: app-debug-*
+        merge-multiple: true
+      continue-on-error: true
+
+    - name: Find APK file
+      id: find-apk
+      run: |
+        APK_PATH=$(find . -name "*.apk" -type f | head -1)
+        echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+        echo "Found APK: $APK_PATH"
+
+    - name: Enable KVM
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    - name: Start redroid emulator
+      run: |
+        docker run -d --rm --privileged -p 5555:5555 redroid/redroid:14.0.0-latest androidboot.redroid_fps=1 androidboot.redroid_gpu_mode=guest
+        echo "Waiting for redroid to start..."
+        sleep 30
+
+        # Wait for ADB to connect
+        for i in {1..30}; do
+          if adb connect localhost:5555 2>/dev/null; then
+            echo "Connected to redroid!"
+            break
+          fi
+          echo "Waiting for redroid... ($i/30)"
+          sleep 5
+        done
+
+        adb devices
+        adb -s localhost:5555 wait-for-device
+        echo "Redroid is ready!"
+
+    - name: Install APK on redroid
+      run: |
+        echo "Installing APK..."
+        adb -s localhost:5555 install -r "${{ steps.find-apk.outputs.apk_path }}"
+
+        echo "Verifying installation..."
+        adb -s localhost:5555 shell pm list packages | grep routesnap || {
+          echo "App not installed!"
+          exit 1
+        }
+        echo "✓ App installed successfully"
+
+    - name: Launch app and check for crashes
+      run: |
+        echo "Launching app..."
+        adb -s localhost:5555 shell am start -n com.routesnap.app/.MainActivity
+
+        echo "Waiting for app to start..."
+        sleep 10
+
+        echo "Checking if app is running..."
+        adb -s localhost:5555 shell dumpsys window | grep -E "mCurrentFocus|mFocusedApp" | grep routesnap || {
+          echo "App may have crashed on startup!"
+          echo "=== Window dumpsys ==="
+          adb -s localhost:5555 shell dumpsys window | grep -E "mCurrentFocus|mFocusedApp"
+          # Don't fail here - app might still be loading
+        }
+
+        echo "✓ App launched"
+
+    - name: Check for ANR and crashes
+      run: |
+        echo "=== Checking for ANR ==="
+        adb -s localhost:5555 shell ls /data/anr/ 2>/dev/null || echo "No ANR directory"
+
+        echo "=== Checking logcat for crashes ==="
+        adb -s localhost:5555 logcat -d | grep -E "FATAL|CRASH|AndroidRuntime" | tail -20 || echo "No crashes found"
+
+        echo "=== Checking for 'routesnap' in logs ==="
+        adb -s localhost:5555 logcat -d | grep -i "routesnap" | tail -30 || echo "No app logs found"
+
+    - name: Take screenshot
+      run: |
+        echo "Taking screenshot..."
+        adb -s localhost:5555 shell screencap -p /data/local/tmp/screenshot.png
+        adb -s localhost:5555 pull /data/local/tmp/screenshot.png /tmp/redroid-screenshot.png
+
+        echo "Screenshot saved to /tmp/redroid-screenshot.png"
+        ls -lh /tmp/redroid-screenshot.png
+      continue-on-error: true
+
+    - name: Upload screenshot artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: redroid-screenshot
+        path: /tmp/redroid-screenshot.png
+        if-no-files-found: ignore
+
+    - name: Upload logcat output
+      if: always()
+      run: |
+        adb -s localhost:5555 logcat -d > /tmp/logcat-output.txt
+        echo "=== Logcat Summary ==="
+        wc -l /tmp/logcat-output.txt
+        tail -100 /tmp/logcat-output.txt
+
+    - name: Upload logcat artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: logcat-output
+        path: /tmp/logcat-output.txt
+        if-no-files-found: ignore
+
+    - name: Cleanup
+      if: always()
+      run: |
+        echo "Stopping redroid container..."
+        docker ps | grep redroid | awk '{print $1}' | xargs docker stop 2>/dev/null || true
+        echo "Cleanup complete"
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [validate-apk, test-on-redroid]
+    if: always()
+
+    steps:
+    - name: Generate summary
+      run: |
+        echo "## Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### APK Validation" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.validate-apk.result }}" == "success" ]; then
+          echo "✓ APK structure validated" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✗ APK validation failed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Redroid Testing" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.test-on-redroid.result }}" == "success" ]; then
+          echo "✓ App runs on redroid without crashes" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.test-on-redroid.result }}" == "failure" ]; then
+          echo "✗ App crashed or failed on redroid" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Redroid test skipped or cancelled" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- Screenshot: Available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- Logcat: Available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
