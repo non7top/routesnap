@@ -42,7 +42,7 @@ android {
                 keyPassword = keystoreProperties["keyPassword"] as String
                 storeFile = file(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
-            } else if (System.getenv("KEYSTORE") != null) {
+            } else if (System.getenv("KEYSTORE") != null && System.getenv("KEYSTORE").isNotEmpty()) {
                 // CI/CD environment variables
                 keyAlias = System.getenv("KEY_ALIAS")
                 keyPassword = System.getenv("KEY_PASSWORD")
@@ -60,7 +60,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            // Only apply signing config if keystore is available
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null && releaseSigning.storeFile.exists()) {
+                signingConfig = releaseSigning
+            }
         }
         debug {
             isMinifyEnabled = false
