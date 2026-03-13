@@ -1,0 +1,68 @@
+name: Build Android APK
+
+on:
+  workflow_call:
+    inputs:
+      build-type:
+        description: 'Build type (debug or release)'
+        required: false
+        type: string
+        default: 'debug'
+      version-name:
+        description: 'Version name override'
+        required: false
+        type: string
+    outputs:
+      apk-path:
+        description: 'Path to the built APK'
+        value: ${{ jobs.build-apk.outputs.apk-path }}
+
+jobs:
+  build-apk:
+    name: Build ${{ inputs.build-type }} APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      apk-path: ${{ steps.find-apk.outputs.apk_path }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build APK
+      run: |
+        if [ "${{ inputs.build-type }}" = "release" ]; then
+          ./gradlew assembleRelease -PversionNameOverride="${{ inputs.version-name }}" --no-daemon
+        else
+          ./gradlew assembleDebug -PversionNameOverride="${{ inputs.version-name }}" --no-daemon
+        fi
+      timeout-minutes: 10
+
+    - name: Find APK file
+      id: find-apk
+      run: |
+        APK_PATH=$(find app/build/outputs/apk/${{ inputs.build-type }} -name "*.apk" -type f | head -1)
+        echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+        if [ -n "$APK_PATH" ]; then
+          echo "Found APK: $APK_PATH"
+        else
+          echo "No APK found!"
+          exit 1
+        fi
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-${{ inputs.build-type }}-${{ github.run_id }}
+        path: ${{ steps.find-apk.outputs.apk_path }}
+        if-no-files-found: error
