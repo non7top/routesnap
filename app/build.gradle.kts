@@ -62,8 +62,10 @@ android {
             )
             // Only apply signing config if keystore is available
             val releaseSigning = signingConfigs.getByName("release")
-            if (releaseSigning.storeFile != null && releaseSigning.storeFile.exists()) {
-                signingConfig = releaseSigning
+            releaseSigning.storeFile?.let { storeFile ->
+                if (storeFile.exists()) {
+                    signingConfig = releaseSigning
+                }
             }
         }
         debug {
