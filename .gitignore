@@ -8,6 +8,7 @@
 *.jks
 *.keystore
 keystore.properties
+!keystore.properties.template
 
 # Files for the ART/Dalvik VM
 *.dex
