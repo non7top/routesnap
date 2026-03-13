@@ -100,12 +100,3 @@ jobs:
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  post-artifact-links:
-    name: Post Artifact Links
-    needs: [build-debug, build-release, lint, dependency-check]
-    if: github.event_name == 'pull_request' && always()
-    uses: ./.github/workflows/post-artifact-links.yml
-    with:
-      run-id: ${{ github.run_id }}
-      pr-number: ${{ github.event.pull_request.number }}
