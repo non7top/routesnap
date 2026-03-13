@@ -5,28 +5,46 @@ on:
     workflows: ["Android CI/CD", "APK Validation Tests"]
     types:
       - completed
+  workflow_call:
+    inputs:
+      run-id:
+        description: 'Workflow run ID to fetch artifacts from'
+        required: true
+        type: number
+      pr-number:
+        description: 'Pull request number to post comment to'
+        required: true
+        type: number
 
 jobs:
   post-artifact-links:
     name: Post Artifact Links to PR
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    if: |
+      (github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_call')
 
     steps:
-    - name: Get PR number
-      id: pr-number
+    - name: Determine PR number and run ID
+      id: ids
       run: |
-        PR_NUMBER=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }} --jq '.pull_requests[0].number // empty')
-        echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-        echo "PR Number: ${PR_NUMBER:-Not found}"
+        if [ "${{ github.event_name }}" == "workflow_call" ]; then
+          echo "pr_number=${{ inputs.pr-number }}" >> $GITHUB_OUTPUT
+          echo "run_id=${{ inputs.run-id }}" >> $GITHUB_OUTPUT
+        else
+          PR_NUMBER=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }} --jq '.pull_requests[0].number // empty')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+          echo "PR Number: ${PR_NUMBER:-Not found}"
+        fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Create artifact comment
       id: comment
-      if: steps.pr-number.outputs.pr_number != ''
+      if: steps.ids.outputs.pr_number != ''
       run: |
-        echo "Fetching artifacts..."
+        echo "Fetching artifacts from run ${{ steps.ids.outputs.run_id }}..."
         
         # Start building the comment
         cat > /tmp/comment.md << 'COMMENT_START'
@@ -35,16 +53,33 @@ jobs:
 COMMENT_START
         
         # Add workflow info
-        echo "**Workflow**: [${{ github.event.workflow_run.name }}](${{ github.event.workflow_run.html_url }})" >> /tmp/comment.md
-        echo "**Status**: ✅ ${{ github.event.workflow_run.conclusion }}" >> /tmp/comment.md
+        if [ "${{ github.event_name }}" == "workflow_call" ]; then
+          WORKFLOW_NAME="CI/CD Pipeline"
+          WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ steps.ids.outputs.run_id }}"
+          WORKFLOW_STATUS="success"
+        else
+          WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
+          WORKFLOW_URL="${{ github.event.workflow_run.html_url }}"
+          WORKFLOW_STATUS="${{ github.event.workflow_run.conclusion }}"
+        fi
+        
+        echo "**Workflow**: [$WORKFLOW_NAME]($WORKFLOW_URL)" >> /tmp/comment.md
+        echo "**Status**: ✅ $WORKFLOW_STATUS" >> /tmp/comment.md
         echo "" >> /tmp/comment.md
         echo "### Download Links" >> /tmp/comment.md
         echo "" >> /tmp/comment.md
         
         # Fetch and format artifacts
-        gh api repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/artifacts \
-          --jq '.artifacts[] | "- **\(.name)** (\(.size_in_bytes | . / 1024 / 1024 | floor) MB) - [Download](\(.archive_download_url))"' \
-          >> /tmp/comment.md
+        ARTIFACT_COUNT=$(gh api repos/${{ github.repository }}/actions/runs/${{ steps.ids.outputs.run_id }}/artifacts --jq '.total_count')
+        echo "Found $ARTIFACT_COUNT artifact(s)"
+        
+        if [ "$ARTIFACT_COUNT" -gt 0 ]; then
+          gh api repos/${{ github.repository }}/actions/runs/${{ steps.ids.outputs.run_id }}/artifacts \
+            --jq '.artifacts[] | "- **\(.name)** (\(.size_in_bytes | . / 1024 / 1024 | floor) MB) - [Download](\(.archive_download_url))"' \
+            >> /tmp/comment.md
+        else
+          echo "_No artifacts found_" >> /tmp/comment.md
+        fi
         
         # Add footer
         cat >> /tmp/comment.md << 'COMMENT_END'
@@ -57,12 +92,12 @@ COMMENT_END
         cat /tmp/comment.md
 
     - name: Post comment to PR
-      if: steps.pr-number.outputs.pr_number != ''
+      if: steps.ids.outputs.pr_number != ''
       run: |
         COMMENT_BODY=$(cat /tmp/comment.md)
         gh api \
-          repos/${{ github.repository }}/issues/${{ steps.pr-number.outputs.pr_number }}/comments \
+          repos/${{ github.repository }}/issues/${{ steps.ids.outputs.pr_number }}/comments \
           --field body="$COMMENT_BODY"
-        echo "✓ Comment posted to PR #${{ steps.pr-number.outputs.pr_number }}"
+        echo "✓ Comment posted to PR #${{ steps.ids.outputs.pr_number }}"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -60,3 +60,12 @@ jobs:
         echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
         echo "- Validated APK: Available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
         echo "- Emulator screenshot: Available if test ran" >> $GITHUB_STEP_SUMMARY
+
+  post-artifact-links:
+    name: Post Artifact Links
+    needs: [validate-apk, test-on-emulator]
+    if: github.event_name == 'pull_request' && always()
+    uses: ./.github/workflows/post-artifact-links.yml
+    with:
+      run-id: ${{ github.run_id }}
+      pr-number: ${{ github.event.pull_request.number }}
