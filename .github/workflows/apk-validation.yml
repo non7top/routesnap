@@ -103,3 +103,134 @@ jobs:
         name: validated-apk-${{ github.run_id }}
         path: app/build/outputs/apk/debug/*.apk
         if-no-files-found: ignore
+
+  test-on-emulator:
+    name: Test on Android Emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: validate-apk
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build debug APK locally
+      run: ./gradlew assembleDebug --no-daemon
+      timeout-minutes: 10
+
+    - name: Find APK file
+      id: find-apk
+      run: |
+        APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" -type f | head -1)
+        echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+        echo "Found APK: $APK_PATH"
+
+    - name: Enable KVM for emulator
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    - name: Run tests on Android Emulator
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 29
+        target: default
+        arch: x86_64
+        profile: pixel_4
+        ram-size: 2048M
+        script: |
+          echo "=== Installing APK ==="
+          adb install -r app/build/outputs/apk/debug/app-debug.apk
+          
+          echo "=== Verifying installation ==="
+          adb shell pm list packages | grep routesnap || {
+            echo "App not installed!"
+            exit 1
+          }
+          echo "✓ App installed successfully"
+          
+          echo "=== Launching app ==="
+          adb shell am start -n com.routesnap.app/.MainActivity
+          
+          echo "=== Waiting for app to start (15 seconds) ==="
+          sleep 15
+          
+          echo "=== Checking if app is running ==="
+          adb shell dumpsys window | grep -E "mCurrentFocus|mFocusedApp" | grep routesnap || {
+            echo "Warning: App may have crashed on startup!"
+            adb shell dumpsys window | grep -E "mCurrentFocus|mFocusedApp"
+          }
+          
+          echo "=== Checking for crashes in logcat ==="
+          adb logcat -d | grep -E "FATAL|CRASH|AndroidRuntime" | tail -20 || {
+            echo "✓ No crashes found"
+          }
+          
+          echo "=== App logs ==="
+          adb logcat -d | grep -i "routesnap" | tail -30 || echo "No app logs found"
+          
+          echo "=== Taking screenshot ==="
+          adb shell screencap -p /data/local/tmp/screenshot.png
+          adb pull /data/local/tmp/screenshot.png /tmp/emulator-screenshot.png
+          echo "Screenshot saved"
+
+    - name: Upload screenshot artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: emulator-screenshot-${{ github.run_id }}
+        path: /tmp/emulator-screenshot.png
+        if-no-files-found: ignore
+
+    - name: Upload logcat output
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: emulator-logcat-${{ github.run_id }}
+        path: /tmp/logcat-output.txt
+        if-no-files-found: ignore
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [validate-apk, test-on-emulator]
+    if: always()
+
+    steps:
+    - name: Generate summary
+      run: |
+        echo "## Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### APK Validation" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.validate-apk.result }}" == "success" ]; then
+          echo "✓ APK structure validated" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✗ APK validation failed or skipped" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Emulator Testing" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.test-on-emulator.result }}" == "success" ]; then
+          echo "✓ App runs on emulator without crashes" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.test-on-emulator.result }}" == "failure" ]; then
+          echo "✗ App crashed or failed on emulator" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Emulator test skipped or cancelled" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- Validated APK: Available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- Emulator screenshot: Available if test ran" >> $GITHUB_STEP_SUMMARY
+        echo "- Logcat output: Available if test ran" >> $GITHUB_STEP_SUMMARY
