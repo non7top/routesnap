@@ -1,6 +1,8 @@
 name: APK Validation Tests
 
 on:
+  pull_request:
+    branches: [ "main", "master", "develop" ]
   workflow_run:
     workflows: ["Android CI/CD"]
     types:
@@ -15,10 +17,11 @@ jobs:
     name: Validate APK Structure
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event.workflow_run.conclusion == 'success'
+    # Skip if triggered by failed workflow_run
+    if: github.event.workflow_run.conclusion != 'failure'
 
     steps:
-    - name: Download APK artifacts
+    - name: Download APK artifacts (from workflow_run)
       uses: actions/download-artifact@v4
       with:
         pattern: app-debug-*
@@ -28,13 +31,13 @@ jobs:
       continue-on-error: true
       if: github.event.workflow_run.id != ''
 
-    - name: Download APK artifacts (PR/push)
+    - name: Download APK artifacts (from PR)
       uses: actions/download-artifact@v4
       with:
         pattern: app-debug-*
         merge-multiple: true
       continue-on-error: true
-      if: github.event.workflow_run.id == ''
+      if: github.event_name == 'pull_request'
 
     - name: Find APK file
       id: find-apk
@@ -44,14 +47,14 @@ jobs:
         if [ -n "$APK_PATH" ]; then
           echo "Found APK: $APK_PATH"
         else
-          echo "No APK found - waiting for Android CI/CD build"
+          echo "No APK found - Android CI/CD may not have completed yet"
           exit 1
         fi
 
     - name: Verify APK exists
       run: |
         if [ -z "${{ steps.find-apk.outputs.apk_path }}" ]; then
-          echo "No APK file found! The Android CI/CD build may not have completed yet."
+          echo "No APK file found!"
           exit 1
         fi
         ls -lh "${{ steps.find-apk.outputs.apk_path }}"
@@ -105,7 +108,7 @@ jobs:
     needs: validate-apk
 
     steps:
-    - name: Download APK artifacts
+    - name: Download APK artifacts (from workflow_run)
       uses: actions/download-artifact@v4
       with:
         pattern: app-debug-*
@@ -115,13 +118,13 @@ jobs:
       continue-on-error: true
       if: github.event.workflow_run.id != ''
 
-    - name: Download APK artifacts (PR/push)
+    - name: Download APK artifacts (from PR)
       uses: actions/download-artifact@v4
       with:
         pattern: app-debug-*
         merge-multiple: true
       continue-on-error: true
-      if: github.event.workflow_run.id == ''
+      if: github.event_name == 'pull_request'
 
     - name: Find APK file
       id: find-apk
