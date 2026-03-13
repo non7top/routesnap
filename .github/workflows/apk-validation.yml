@@ -5,13 +5,6 @@ on:
     workflows: ["Android CI/CD"]
     types:
       - completed
-  pull_request:
-    branches: [ "main", "master", "develop" ]
-    types:
-      - synchronize
-      - reopened
-  push:
-    branches: [ "main", "master", "develop" ]
 
 concurrency:
   group: apk-validation-${{ github.head_ref || github.ref_name }}
@@ -22,7 +15,7 @@ jobs:
     name: Validate APK Structure
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
+    if: github.event.workflow_run.conclusion == 'success'
 
     steps:
     - name: Download APK artifacts
@@ -110,7 +103,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: validate-apk
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
 
     steps:
     - name: Download APK artifacts
