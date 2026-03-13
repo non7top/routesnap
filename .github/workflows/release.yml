@@ -12,6 +12,9 @@ on:
         required: false
         default: 'false'
         type: boolean
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   release:
@@ -32,22 +35,52 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Release APK
-      run: ./gradlew assembleRelease
+    - name: Get version from tag (for tag pushes)
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+    - name: Set version from input (for manual dispatch)
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+
+    - name: Validate semantic version
+      run: |
+        if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+          echo "Error: Version '$VERSION' is not a valid semantic version (e.g., 1.0.0, 1.0.0-beta)"
+          exit 1
+        fi
+        echo "Using version: $VERSION"
+
+    - name: Build Release APK with version
+      run: ./gradlew assembleRelease -PversionNameOverride="${{ env.VERSION }}"
 
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
       with:
-        name: routeSnap-release
+        name: routesnap-v${{ env.VERSION }}
         path: app/build/outputs/apk/release/app-release-unsigned.apk
+
+    - name: Sign APK (if keystore available)
+      id: sign_apk
+      uses: r0adkll/sign-android-release@v1
+      with:
+        releaseDirectory: app/build/outputs/apk/release
+        signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+        alias: ${{ secrets.ALIAS }}
+        keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+        keyPassword: ${{ secrets.KEY_PASSWORD }}
+      continue-on-error: true
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v${{ inputs.version }}
-        name: RouteSnap v${{ inputs.version }}
+        tag_name: v${{ env.VERSION }}
+        name: RouteSnap v${{ env.VERSION }}
         body: |
-          ## RouteSnap v${{ inputs.version }}
+          ## RouteSnap v${{ env.VERSION }}
 
           ### What's New
           - Phase 1 MVP Release
@@ -73,6 +106,6 @@ jobs:
         files: |
           app/build/outputs/apk/release/*.apk
         draft: false
-        prerelease: ${{ inputs.prerelease }}
+        prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

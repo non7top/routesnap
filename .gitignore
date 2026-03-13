@@ -4,6 +4,11 @@
 *.ap_
 *.aab
 
+# Keystore files (keep these private!)
+*.jks
+*.keystore
+keystore.properties
+
 # Files for the ART/Dalvik VM
 *.dex
 
