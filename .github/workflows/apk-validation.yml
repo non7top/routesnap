@@ -151,38 +151,17 @@ jobs:
         script: |
           echo "=== Installing APK ==="
           adb install -r app/build/outputs/apk/debug/app-debug.apk
-          
           echo "=== Verifying installation ==="
-          adb shell pm list packages | grep routesnap || {
-            echo "App not installed!"
-            exit 1
-          }
-          echo "✓ App installed successfully"
-          
+          adb shell pm list packages | grep routesnap || exit 1
           echo "=== Launching app ==="
           adb shell am start -n com.routesnap.app/.MainActivity
-          
-          echo "=== Waiting for app to start (15 seconds) ==="
+          echo "=== Waiting for app to start ==="
           sleep 15
-          
-          echo "=== Checking if app is running ==="
-          adb shell dumpsys window | grep -E "mCurrentFocus|mFocusedApp" | grep routesnap || {
-            echo "Warning: App may have crashed on startup!"
-            adb shell dumpsys window | grep -E "mCurrentFocus|mFocusedApp"
-          }
-          
-          echo "=== Checking for crashes in logcat ==="
-          adb logcat -d | grep -E "FATAL|CRASH|AndroidRuntime" | tail -20 || {
-            echo "✓ No crashes found"
-          }
-          
-          echo "=== App logs ==="
-          adb logcat -d | grep -i "routesnap" | tail -30 || echo "No app logs found"
-          
+          echo "=== Checking for crashes ==="
+          adb logcat -d | grep -E "FATAL|CRASH" | tail -20 || echo "No crashes"
           echo "=== Taking screenshot ==="
           adb shell screencap -p /data/local/tmp/screenshot.png
           adb pull /data/local/tmp/screenshot.png /tmp/emulator-screenshot.png
-          echo "Screenshot saved"
 
     - name: Upload screenshot artifact
       uses: actions/upload-artifact@v4
