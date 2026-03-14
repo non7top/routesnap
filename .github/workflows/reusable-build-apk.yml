@@ -61,7 +61,7 @@ jobs:
         fi
 
     - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: app-${{ inputs.build-type }}-${{ github.run_id }}
         path: ${{ steps.find-apk.outputs.apk_path }}
