@@ -24,8 +24,12 @@ data class PickerUiState(
     val tripName: String = "",
     val segments: List<TripSegment> = emptyList(),
     val clusterCount: Int = 0,
-    val estimatedDurationSeconds: Int = 0
-)
+    val estimatedDurationSeconds: Int = 0,
+    val photosWithGps: Int = 0,
+    val totalPhotos: Int = 0
+) {
+    val gpsPercentage: Float get() = if (totalPhotos > 0) photosWithGps.toFloat() / totalPhotos else 0f
+}
 
 data class SelectedMediaMetadata(
     val uri: Uri,
@@ -91,7 +95,9 @@ class PickerViewModel @Inject constructor(
                 metadata = emptyList(),
                 segments = emptyList(),
                 clusterCount = 0,
-                estimatedDurationSeconds = 0
+                estimatedDurationSeconds = 0,
+                photosWithGps = 0,
+                totalPhotos = 0
             )
             return
         }
@@ -100,12 +106,15 @@ class PickerViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                // Extract metadata
-                val metadata = uris.map { uri ->
+                // Extract metadata from URIs
+                val metadataList = tripRepository.extractMetadataBatch(uris)
+                
+                // Convert to UI metadata
+                val metadata = metadataList.map { m ->
                     SelectedMediaMetadata(
-                        uri = uri,
-                        hasLocation = false, // Will be updated after extraction
-                        timestamp = null
+                        uri = m.uri,
+                        hasLocation = m.hasLocation,
+                        timestamp = m.timestamp
                     )
                 }
 
@@ -113,12 +122,15 @@ class PickerViewModel @Inject constructor(
                 val segments = tripRepository.processSelectedMedia(uris)
                 val clusterCount = segments.mapNotNull { it.clusterId }.distinct().size
                 val totalDurationMs = segments.sumOf { it.durationMs }
+                val photosWithGps = metadataList.count { it.hasLocation }
 
                 _uiState.value = _uiState.value.copy(
                     metadata = metadata,
                     segments = segments,
                     clusterCount = clusterCount,
                     estimatedDurationSeconds = (totalDurationMs / 1000).toInt(),
+                    photosWithGps = photosWithGps,
+                    totalPhotos = uris.size,
                     isProcessing = false
                 )
             } catch (e: Exception) {

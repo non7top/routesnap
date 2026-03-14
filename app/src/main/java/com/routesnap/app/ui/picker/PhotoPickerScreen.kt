@@ -96,6 +96,8 @@ fun PhotoPickerScreen(
                         photoCount = uiState.selectedUris.size,
                         clusterCount = uiState.clusterCount,
                         estimatedDuration = uiState.estimatedDurationSeconds,
+                        photosWithGps = uiState.photosWithGps,
+                        totalPhotos = uiState.totalPhotos,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -177,6 +179,8 @@ private fun StatsCard(
     photoCount: Int,
     clusterCount: Int,
     estimatedDuration: Int,
+    photosWithGps: Int,
+    totalPhotos: Int,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -185,27 +189,60 @@ private fun StatsCard(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+                .padding(16.dp)
         ) {
-            StatItem(
-                icon = Icons.Default.Photo,
-                value = photoCount.toString(),
-                label = "Photos"
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                StatItem(
+                    icon = Icons.Default.Photo,
+                    value = photoCount.toString(),
+                    label = "Photos"
+                )
+                StatItem(
+                    icon = Icons.Default.LocationOn,
+                    value = clusterCount.toString(),
+                    label = "Stops"
+                )
+                StatItem(
+                    icon = Icons.Default.Timer,
+                    value = "${estimatedDuration}s",
+                    label = "Duration"
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // GPS status indicator
+            val gpsPercentage = if (totalPhotos > 0) photosWithGps.toFloat() / totalPhotos else 0f
+            val gpsStatusText = when {
+                gpsPercentage == 1f -> "✓ All photos have GPS"
+                gpsPercentage > 0.5f -> "⚠ $photosWithGps/$totalPhotos have GPS"
+                gpsPercentage > 0f -> "⚠ Only $photosWithGps/$totalPhotos have GPS"
+                else -> "✗ No GPS data (using time-based grouping)"
+            }
+            
+            Text(
+                text = gpsStatusText,
+                style = MaterialTheme.typography.bodySmall,
+                color = when {
+                    gpsPercentage == 1f -> MaterialTheme.colorScheme.primary
+                    gpsPercentage > 0.5f -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
-            StatItem(
-                icon = Icons.Default.LocationOn,
-                value = clusterCount.toString(),
-                label = "Stops"
-            )
-            StatItem(
-                icon = Icons.Default.Timer,
-                value = "${estimatedDuration}s",
-                label = "Duration"
-            )
+            
+            if (gpsPercentage > 0f && gpsPercentage < 1f) {
+                LinearProgressIndicator(
+                    progress = gpsPercentage,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                )
+            }
         }
     }
 }

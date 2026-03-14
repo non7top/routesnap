@@ -104,55 +104,79 @@ class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfi
      * Group sorted metadata into clusters based on distance and time
      */
     private fun groupIntoClusters(metadataList: List<MediaMetadata>): List<List<MediaMetadata>> {
+        if (metadataList.isEmpty()) return emptyList()
+        
+        // Check if any photos have GPS data
+        val hasGpsData = metadataList.any { it.hasLocation }
+        
         val clusters = mutableListOf<MutableList<MediaMetadata>>()
         var currentCluster = mutableListOf<MediaMetadata>()
         var lastLocation: LatLng? = null
         var lastTimestamp: Long? = null
-
+        
         for (metadata in metadataList) {
             val shouldStartNewCluster = shouldStartNewCluster(
                 metadata = metadata,
                 lastLocation = lastLocation,
-                lastTimestamp = lastTimestamp
+                lastTimestamp = lastTimestamp,
+                hasGpsData = hasGpsData
             )
-
+            
             if (shouldStartNewCluster) {
                 if (currentCluster.isNotEmpty()) {
                     clusters.add(currentCluster)
                 }
                 currentCluster = mutableListOf()
             }
-
+            
             currentCluster.add(metadata)
             lastLocation = metadata.latLng
             lastTimestamp = metadata.timestamp
         }
-
+        
         if (currentCluster.isNotEmpty()) {
             clusters.add(currentCluster)
         }
-
+        
         return clusters
     }
-
+    
     /**
      * Determine if a new cluster should be started
      */
     private fun shouldStartNewCluster(
         metadata: MediaMetadata,
         lastLocation: LatLng?,
-        lastTimestamp: Long?
+        lastTimestamp: Long?,
+        hasGpsData: Boolean = true
     ): Boolean {
         // First item always starts a cluster
         if (lastLocation == null && lastTimestamp == null) {
             return false
         }
-
+        
+        // If no GPS data available, use time-based clustering only
+        if (!hasGpsData || metadata.latLng == null) {
+            // Force new cluster if no timestamp
+            if (metadata.timestamp == null && lastTimestamp == null) {
+                return true
+            }
+            
+            // Use larger time gap for time-only clustering (6 hours = new "location")
+            val timeGapHours = 6L
+            if (lastTimestamp != null && metadata.timestamp != null) {
+                val timeDiff = (metadata.timestamp!! - lastTimestamp) / (1000 * 60 * 60)
+                return timeDiff > timeGapHours
+            }
+            
+            return false
+        }
+        
         // Force new cluster if no location data
         if (metadata.latLng == null) {
             return true
         }
-
+        
         // Check time gap
         val currentTime = metadata.timestamp
         if (lastTimestamp != null && currentTime != null) {
@@ -161,7 +185,7 @@ class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfi
                 return true
             }
         }
-
+        
         // Check distance
         if (lastLocation != null) {
             val distance = metadata.latLng!!.distanceTo(lastLocation)
@@ -169,7 +193,7 @@ class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfi
                 return true
             }
         }
-
+        
         return false
     }
 
