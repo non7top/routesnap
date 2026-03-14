@@ -30,10 +30,9 @@ data class PickerUiState(
 ) {
     val gpsPercentage: Float get() = if (totalPhotos > 0) photosWithGps.toFloat() / totalPhotos else 0f
     
-    // Map URIs to cluster IDs for coloring
-    val uriToClusterMap: Map<Uri, String?> by lazy {
-        segments.associate { it.uri to it.clusterId }
-    }
+    // Map URIs to cluster IDs for coloring (filter out null URIs)
+    val uriToClusterMap: Map<Uri, String?>
+        get() = segments.filter { it.uri != null }.associate { it.uri!! to it.clusterId }
 }
 
 data class SelectedMediaMetadata(
