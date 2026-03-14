@@ -130,7 +130,7 @@ private fun TimelineContent(
             // Show clustered segments
             clusters.forEach { cluster ->
                 item {
-                    ClusterHeader(clusterName = cluster.name)
+                    ClusterHeader(clusterName = cluster.name, segmentCount = cluster.segmentIndices.size)
                 }
 
                 items(
@@ -155,26 +155,33 @@ private fun TimelineContent(
 }
 
 @Composable
-private fun ClusterHeader(clusterName: String) {
+private fun ClusterHeader(clusterName: String, segmentCount: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = Icons.Default.LocationOn,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = clusterName,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
+        Column {
+            Text(
+                text = clusterName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "$segmentCount photos",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

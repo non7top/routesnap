@@ -129,10 +129,17 @@ fun PhotoPickerScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier.weight(1f)
                     ) {
-                        items(uiState.selectedUris) { uri ->
+                        items(
+                            count = uiState.metadata.size,
+                            key = { uiState.metadata[it].uri }
+                        ) { index ->
+                            val item = uiState.metadata[index]
                             PhotoGridItem(
-                                uri = uri,
-                                onRemove = { viewModel.removeUri(uri) }
+                                uri = item.uri,
+                                hasGps = item.hasLocation,
+                                clusterId = item.clusterId,
+                                totalClusters = uiState.clusterCount,
+                                onRemove = { viewModel.removeUri(item.uri) }
                             )
                         }
                     }
@@ -282,8 +289,22 @@ private fun EmptyState(onPickPhotos: () -> Unit) {
 @Composable
 private fun PhotoGridItem(
     uri: Uri,
+    hasGps: Boolean,
+    clusterId: String?,
+    totalClusters: Int,
     onRemove: () -> Unit
 ) {
+    // Generate consistent color from cluster ID
+    val clusterColor = clusterId?.let { id ->
+        val hash = id.hashCode()
+        Color(
+            red = ((hash and 0xFF0000) shr 16) / 255f * 0.7f + 0.3f,
+            green = ((hash and 0x00FF00) shr 8) / 255f * 0.7f + 0.3f,
+            blue = (hash and 0x0000FF) / 255f * 0.7f + 0.3f,
+            alpha = 1f
+        )
+    } ?: Color.Gray
+    
     Box(
         modifier = Modifier
             .aspectRatio(1f)
@@ -296,7 +317,29 @@ private fun PhotoGridItem(
             contentScale = ContentScale.Crop
         )
 
-        // Remove button overlay
+        // GPS indicator overlay (bottom-left)
+        if (hasGps) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(4.dp)
+                    .background(
+                        clusterColor,
+                        RoundedCornerShape(4.dp)
+                    )
+                    .size(20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = "Has GPS",
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+
+        // Remove button overlay (top-right)
         IconButton(
             onClick = onRemove,
             modifier = Modifier

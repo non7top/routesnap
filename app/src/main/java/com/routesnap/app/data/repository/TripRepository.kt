@@ -114,6 +114,13 @@ class TripRepository(
 
         return segments
     }
+    
+    /**
+     * Extract metadata from URIs (for UI display)
+     */
+    suspend fun extractMetadataBatch(uris: List<Uri>): List<MediaMetadata> {
+        return metadataExtractor.extractMetadataBatch(uris)
+    }
 
     /**
      * Create a new trip from selected media

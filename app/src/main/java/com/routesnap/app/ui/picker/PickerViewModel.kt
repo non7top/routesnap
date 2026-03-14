@@ -24,13 +24,22 @@ data class PickerUiState(
     val tripName: String = "",
     val segments: List<TripSegment> = emptyList(),
     val clusterCount: Int = 0,
-    val estimatedDurationSeconds: Int = 0
-)
+    val estimatedDurationSeconds: Int = 0,
+    val photosWithGps: Int = 0,
+    val totalPhotos: Int = 0
+) {
+    val gpsPercentage: Float get() = if (totalPhotos > 0) photosWithGps.toFloat() / totalPhotos else 0f
+    
+    // Map URIs to cluster IDs for coloring (filter out null URIs)
+    val uriToClusterMap: Map<Uri, String?>
+        get() = segments.filter { it.uri != null }.associate { it.uri!! to it.clusterId }
+}
 
 data class SelectedMediaMetadata(
     val uri: Uri,
     val hasLocation: Boolean,
-    val timestamp: Long?
+    val timestamp: Long?,
+    val clusterId: String? = null
 )
 
 /**
@@ -91,7 +100,9 @@ class PickerViewModel @Inject constructor(
                 metadata = emptyList(),
                 segments = emptyList(),
                 clusterCount = 0,
-                estimatedDurationSeconds = 0
+                estimatedDurationSeconds = 0,
+                photosWithGps = 0,
+                totalPhotos = 0
             )
             return
         }
@@ -100,25 +111,34 @@ class PickerViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                // Extract metadata
-                val metadata = uris.map { uri ->
+                // Extract metadata from URIs
+                val metadataList = tripRepository.extractMetadataBatch(uris)
+                
+                // Create segment to cluster mapping
+                val segments = tripRepository.processSelectedMedia(uris)
+                val uriToClusterMap = segments.associate { it.uri to it.clusterId }
+                
+                // Convert to UI metadata with cluster info
+                val metadata = metadataList.map { m ->
                     SelectedMediaMetadata(
-                        uri = uri,
-                        hasLocation = false, // Will be updated after extraction
-                        timestamp = null
+                        uri = m.uri,
+                        hasLocation = m.hasLocation,
+                        timestamp = m.timestamp,
+                        clusterId = uriToClusterMap[m.uri]
                     )
                 }
 
-                // Process and cluster
-                val segments = tripRepository.processSelectedMedia(uris)
                 val clusterCount = segments.mapNotNull { it.clusterId }.distinct().size
                 val totalDurationMs = segments.sumOf { it.durationMs }
+                val photosWithGps = metadataList.count { it.hasLocation }
 
                 _uiState.value = _uiState.value.copy(
                     metadata = metadata,
                     segments = segments,
                     clusterCount = clusterCount,
                     estimatedDurationSeconds = (totalDurationMs / 1000).toInt(),
+                    photosWithGps = photosWithGps,
+                    totalPhotos = uris.size,
                     isProcessing = false
                 )
             } catch (e: Exception) {
