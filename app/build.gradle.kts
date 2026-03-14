@@ -137,7 +137,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.5.0")
 
     // Moshi (JSON serialization)
-    implementation("com.squareup.moshi:moshi-kotlin:1.15.0")
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.2")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
