@@ -13,23 +13,20 @@ permissions:
   pull-requests: write
   actions: read
 
-env:
-  VERSION_NAME: ${{ github.event_name == 'pull_request' && format('pr{0}-{1}', github.event.pull_request.number, github.sha) || github.sha }}
-
 jobs:
   build-debug:
     name: Build Debug APK
     uses: ./.github/workflows/reusable-build-apk.yml
     with:
       build-type: debug
-      version-name: ${{ env.VERSION_NAME }}
+      version-name: ${{ github.event_name == 'pull_request' && format('pr{0}-{1}', github.event.pull_request.number, github.sha) || github.sha }}
 
   build-release:
     name: Build Release APK
     uses: ./.github/workflows/reusable-build-apk.yml
     with:
       build-type: release
-      version-name: ${{ env.VERSION_NAME }}
+      version-name: ${{ github.event_name == 'pull_request' && format('pr{0}-{1}', github.event.pull_request.number, github.sha) || github.sha }}
 
   lint:
     name: Lint
