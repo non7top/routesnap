@@ -325,18 +325,66 @@ app/
 ## Critical Implementation Notes
 
 ### Permission Strategy (Android 14+)
+
+#### Phase 1: Photo Picker Only (Current)
 ```kotlin
 // Photo Picker - NO permission needed for selected URIs
+// ⚠️ GPS EXIF data is STRIPPED by Photo Picker (Android privacy feature)
 registerForActivityResult(PickVisualMedia()) { ... }
+```
 
-// For full gallery access (if custom picker needed)
-// Manifest: READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, READ_MEDIA_VISUAL_USER_SELECTED
+**Known Limitation:** Android's Photo Picker intentionally strips GPS EXIF data from selected images for privacy reasons (Google Issue #243294058, Stack Overflow #79739293).
+
+| Picker Type | GPS EXIF | Permissions | UX Quality |
+|-------------|----------|-------------|------------|
+| Photo Picker (`PickMultipleVisualMedia`) | ❌ Stripped | None | ✅ Best |
+| Document Picker (`OpenMultipleDocuments`) | ✅ Preserved | None | ⚠️ Poor |
+| Legacy Picker (`ACTION_GET_CONTENT`) | ✅ Preserved | Storage permissions | ⚠️ Moderate |
+
+#### Phase 2: Dual Picker Strategy (Planned)
+**Option 3: Offer Both Pickers** - Let users choose based on their needs:
+
+```kotlin
+// Option A: Photo Picker (default, best UX, no GPS)
+val photoPicker = registerForActivityResult(PickMultipleVisualMedia()) { ... }
+
+// Option B: Document Picker (advanced, preserves GPS, worse UX)
+val documentPicker = registerForActivityResult(OpenMultipleDocuments()) { ... }
+```
+
+**UI Implementation:**
+```
+┌─────────────────────────────────────┐
+│  Select Photos                      │
+├─────────────────────────────────────┤
+│  📸 Photo Picker (Recommended)      │
+│     Best experience, no permissions │
+│     ⚠️ Location data may be limited │
+│                                     │
+│  📁 Document Picker (Advanced)      │
+│     Preserves location metadata     │
+│     Less intuitive interface        │
+└─────────────────────────────────────┘
+```
+
+**Manifest (Phase 2):**
+```xml
+<!-- Photo Picker - no permissions needed -->
+<!-- Document Picker - no permissions needed -->
+
+<!-- Only needed if using legacy picker -->
+<!-- 
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+<uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+<uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
+-->
 ```
 
 ### API Level Requirements
 - **Minimum:** API 26 (Android 8.0)
 - **Target:** API 34 (Android 14)
 - Photo Picker available API 30+ (fallback for older)
+- Document Picker available API 19+
 
 ### Cost Considerations
 | Service | Cost | Mitigation |
@@ -358,12 +406,13 @@ registerForActivityResult(PickVisualMedia()) { ... }
 6. ✅ Save to gallery
 
 ### V2 (Should Have) - v1.5
-1. Video trimming/highlights
-2. Ken Burns effects
-3. Audio ducking
-4. Aspect ratio selection
-5. Room database for trip persistence
-6. Hilt dependency injection
+1. **Dual picker strategy (Photo Picker + Document Picker)**
+2. Video trimming/highlights
+3. Ken Burns effects
+4. Audio ducking
+5. Aspect ratio selection
+6. Room database for trip persistence
+7. Hilt dependency injection
 
 ### V3 (Nice to Have) - v2.0
 1. 3D terrain visualization
@@ -376,13 +425,39 @@ registerForActivityResult(PickVisualMedia()) { ... }
 
 ## Risk Mitigation
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| `MapSnapshotter` slow for long routes | High | Pre-generate tiles in parallel; cache results |
-| Media3 `CanvasOverlay` drops frames | Medium | Test early; fallback to pre-rendered segments |
-| Memory OOM with 100+ photos | High | Pagination in picker; stream processing |
-| Foreground Service battery drain | Medium | Add "low power" mode (lower resolution) |
-| Map tile loading offline | Low | Cache tiles; offline-first design |
+| Risk | Impact | Mitigation | Status |
+|------|--------|------------|--------|
+| `MapSnapshotter` slow for long routes | High | Pre-generate tiles in parallel; cache results | Phase 2 |
+| Media3 `CanvasOverlay` drops frames | Medium | Test early; fallback to pre-rendered segments | Phase 2 |
+| Memory OOM with 100+ photos | High | Pagination in picker; stream processing | ✅ Mitigated |
+| Foreground Service battery drain | Medium | Add "low power" mode (lower resolution) | Phase 2 |
+| Map tile loading offline | Low | Cache tiles; offline-first design | Phase 2 |
+| **Photo Picker strips GPS EXIF** | **High** | **Dual picker strategy in Phase 2** | **✅ Documented** |
+
+### GPS EXIF Limitation Details
+
+**Problem:** Android's Photo Picker intentionally strips GPS EXIF data from selected images for privacy reasons.
+
+**References:**
+- Google Issue Tracker #243294058
+- Stack Overflow #79739293
+- Stack Overflow #73571692
+
+**Impact:**
+- Location-based clustering falls back to time-based grouping
+- GPS icons on photos will be empty for Photo Picker selections
+- User experience: Photos grouped by time gaps (6 hours) instead of location
+
+**Current Mitigation (Phase 1):**
+- Time-based clustering works reliably as fallback
+- GPS icons shown per-photo (accurate indicator when data available)
+- Clear UI feedback about clustering results
+
+**Planned Solution (Phase 2 - Option 3):**
+- Offer dual picker: Photo Picker (default) + Document Picker (advanced)
+- Photo Picker: Best UX, no permissions, GPS stripped
+- Document Picker: Preserves GPS, no permissions, poorer UX
+- User chooses based on their needs
 
 ---
 
@@ -395,13 +470,26 @@ registerForActivityResult(PickVisualMedia()) { ... }
 ---
 
 ## Next Steps
-1. Initialize Android project with Compose template
-2. Set up Hilt, Room, Media3 dependencies
-3. Implement Photo Picker + EXIF extraction
-4. Build clustering algorithm
-5. Create MapSnapshotter wrapper
-6. Implement Media3 composition pipeline
-7. Build UI screens (Compose)
-8. Add Foreground Service for rendering
-9. Test on various devices (low/mid/high-end)
-10. Beta release + iterate
+
+### Phase 1 (Complete)
+1. ✅ Initialize Android project with Compose template
+2. ✅ Set up Hilt, Room, Media3 dependencies
+3. ✅ Implement Photo Picker + EXIF extraction
+4. ✅ Build clustering algorithm (GPS + time fallback)
+5. ✅ Create MapSnapshotter wrapper
+6. ✅ Implement Media3 composition pipeline
+7. ✅ Build UI screens (Compose)
+8. ✅ Add Foreground Service for rendering
+9. ✅ Test on various devices (low/mid/high-end)
+10. ✅ Beta release + iterate
+
+### Phase 2 (Planned)
+1. **Implement dual picker strategy**
+   - Add Document Picker option (`OpenMultipleDocuments()`)
+   - Create picker selection UI
+   - Preserve GPS EXIF with Document Picker
+2. Video trimming/highlights
+3. Ken Burns effects for photos
+4. Audio ducking implementation
+5. Map animation engine (polyline animation)
+6. Performance optimizations
