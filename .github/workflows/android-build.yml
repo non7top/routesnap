@@ -51,7 +51,7 @@ jobs:
       run: ./gradlew lint --no-daemon
 
     - name: Upload lint reports
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       if: always()
       with:
         name: lint-reports-${{ github.run_id }}
