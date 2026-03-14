@@ -134,7 +134,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     // Coil (Image loading)
-    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     // Moshi (JSON serialization)
     implementation("com.squareup.moshi:moshi-kotlin:1.15.2")
