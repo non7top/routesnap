@@ -57,12 +57,24 @@ class MetadataExtractor(private val contentResolver: ContentResolver) {
             contentResolver.openInputStream(uri)?.use { inputStream ->
                 val exif = ExifInterface(inputStream)
 
+                // Try multiple methods to get GPS coordinates
                 val latLong = exif.latLong
-                val latitude = latLong?.getOrNull(0)
-                val longitude = latLong?.getOrNull(1)
+                var latitude: Double? = latLong?.getOrNull(0)
+                var longitude: Double? = latLong?.getOrNull(1)
+                
+                // Log for debugging
+                if (latitude == null || longitude == null) {
+                    // Try alternative EXIF tags
+                    val latRef = exif.getAttribute(ExifInterface.TAG_GPS_LATITUDE_REF)
+                    val lat = exif.getAttribute(ExifInterface.TAG_GPS_LATITUDE)
+                    val lonRef = exif.getAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF)
+                    val lon = exif.getAttribute(ExifInterface.TAG_GPS_LONGITUDE)
+                    
+                    Log.d(TAG, "GPS tags found: latRef=$latRef, lat=$lat, lonRef=$lonRef, lon=$lon")
+                    Log.d(TAG, "latLong array: ${latLong?.contentToString()}")
+                }
 
                 val timestamp = extractTimestamp(exif)
-
                 val (width, height) = extractDimensions(exif)
 
                 MediaMetadata(
@@ -81,7 +93,7 @@ class MetadataExtractor(private val contentResolver: ContentResolver) {
                 error = MetadataError.IoError("Could not open input stream for $uri")
             )
         } catch (e: IOException) {
-            Log.e(TAG, "Error extracting EXIF metadata for $uri", e)
+            Log.e(TAG, "IO error extracting EXIF for $uri", e)
             MediaMetadata(
                 uri = uri,
                 latitude = null,

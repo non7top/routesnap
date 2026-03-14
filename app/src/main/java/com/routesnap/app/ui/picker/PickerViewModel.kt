@@ -29,12 +29,18 @@ data class PickerUiState(
     val totalPhotos: Int = 0
 ) {
     val gpsPercentage: Float get() = if (totalPhotos > 0) photosWithGps.toFloat() / totalPhotos else 0f
+    
+    // Map URIs to cluster IDs for coloring
+    val uriToClusterMap: Map<Uri, String?> by lazy {
+        segments.associate { it.uri to it.clusterId }
+    }
 }
 
 data class SelectedMediaMetadata(
     val uri: Uri,
     val hasLocation: Boolean,
-    val timestamp: Long?
+    val timestamp: Long?,
+    val clusterId: String? = null
 )
 
 /**
@@ -109,17 +115,20 @@ class PickerViewModel @Inject constructor(
                 // Extract metadata from URIs
                 val metadataList = tripRepository.extractMetadataBatch(uris)
                 
-                // Convert to UI metadata
+                // Create segment to cluster mapping
+                val segments = tripRepository.processSelectedMedia(uris)
+                val uriToClusterMap = segments.associate { it.uri to it.clusterId }
+                
+                // Convert to UI metadata with cluster info
                 val metadata = metadataList.map { m ->
                     SelectedMediaMetadata(
                         uri = m.uri,
                         hasLocation = m.hasLocation,
-                        timestamp = m.timestamp
+                        timestamp = m.timestamp,
+                        clusterId = uriToClusterMap[m.uri]
                     )
                 }
 
-                // Process and cluster
-                val segments = tripRepository.processSelectedMedia(uris)
                 val clusterCount = segments.mapNotNull { it.clusterId }.distinct().size
                 val totalDurationMs = segments.sumOf { it.durationMs }
                 val photosWithGps = metadataList.count { it.hasLocation }

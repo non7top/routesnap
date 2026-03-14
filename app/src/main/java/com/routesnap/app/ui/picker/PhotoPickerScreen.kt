@@ -96,8 +96,6 @@ fun PhotoPickerScreen(
                         photoCount = uiState.selectedUris.size,
                         clusterCount = uiState.clusterCount,
                         estimatedDuration = uiState.estimatedDurationSeconds,
-                        photosWithGps = uiState.photosWithGps,
-                        totalPhotos = uiState.totalPhotos,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -131,10 +129,17 @@ fun PhotoPickerScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier.weight(1f)
                     ) {
-                        items(uiState.selectedUris) { uri ->
+                        items(
+                            count = uiState.metadata.size,
+                            key = { uiState.metadata[it].uri }
+                        ) { index ->
+                            val item = uiState.metadata[index]
                             PhotoGridItem(
-                                uri = uri,
-                                onRemove = { viewModel.removeUri(uri) }
+                                uri = item.uri,
+                                hasGps = item.hasLocation,
+                                clusterId = item.clusterId,
+                                totalClusters = uiState.clusterCount,
+                                onRemove = { viewModel.removeUri(item.uri) }
                             )
                         }
                     }
@@ -179,8 +184,6 @@ private fun StatsCard(
     photoCount: Int,
     clusterCount: Int,
     estimatedDuration: Int,
-    photosWithGps: Int,
-    totalPhotos: Int,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -189,60 +192,27 @@ private fun StatsCard(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                StatItem(
-                    icon = Icons.Default.Photo,
-                    value = photoCount.toString(),
-                    label = "Photos"
-                )
-                StatItem(
-                    icon = Icons.Default.LocationOn,
-                    value = clusterCount.toString(),
-                    label = "Stops"
-                )
-                StatItem(
-                    icon = Icons.Default.Timer,
-                    value = "${estimatedDuration}s",
-                    label = "Duration"
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // GPS status indicator
-            val gpsPercentage = if (totalPhotos > 0) photosWithGps.toFloat() / totalPhotos else 0f
-            val gpsStatusText = when {
-                gpsPercentage == 1f -> "✓ All photos have GPS"
-                gpsPercentage > 0.5f -> "⚠ $photosWithGps/$totalPhotos have GPS"
-                gpsPercentage > 0f -> "⚠ Only $photosWithGps/$totalPhotos have GPS"
-                else -> "✗ No GPS data (using time-based grouping)"
-            }
-            
-            Text(
-                text = gpsStatusText,
-                style = MaterialTheme.typography.bodySmall,
-                color = when {
-                    gpsPercentage == 1f -> MaterialTheme.colorScheme.primary
-                    gpsPercentage > 0.5f -> MaterialTheme.colorScheme.tertiary
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                }
+            StatItem(
+                icon = Icons.Default.Photo,
+                value = photoCount.toString(),
+                label = "Photos"
             )
-            
-            if (gpsPercentage > 0f && gpsPercentage < 1f) {
-                LinearProgressIndicator(
-                    progress = gpsPercentage,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-                )
-            }
+            StatItem(
+                icon = Icons.Default.LocationOn,
+                value = clusterCount.toString(),
+                label = "Stops"
+            )
+            StatItem(
+                icon = Icons.Default.Timer,
+                value = "${estimatedDuration}s",
+                label = "Duration"
+            )
         }
     }
 }
@@ -319,8 +289,22 @@ private fun EmptyState(onPickPhotos: () -> Unit) {
 @Composable
 private fun PhotoGridItem(
     uri: Uri,
+    hasGps: Boolean,
+    clusterId: String?,
+    totalClusters: Int,
     onRemove: () -> Unit
 ) {
+    // Generate consistent color from cluster ID
+    val clusterColor = clusterId?.let { id ->
+        val hash = id.hashCode()
+        Color(
+            red = ((hash and 0xFF0000) shr 16) / 255f * 0.7f + 0.3f,
+            green = ((hash and 0x00FF00) shr 8) / 255f * 0.7f + 0.3f,
+            blue = (hash and 0x0000FF) / 255f * 0.7f + 0.3f,
+            alpha = 1f
+        )
+    } ?: Color.Gray
+    
     Box(
         modifier = Modifier
             .aspectRatio(1f)
@@ -333,7 +317,29 @@ private fun PhotoGridItem(
             contentScale = ContentScale.Crop
         )
 
-        // Remove button overlay
+        // GPS indicator overlay (bottom-left)
+        if (hasGps) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(4.dp)
+                    .background(
+                        clusterColor,
+                        RoundedCornerShape(4.dp)
+                    )
+                    .size(20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = "Has GPS",
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+
+        // Remove button overlay (top-right)
         IconButton(
             onClick = onRemove,
             modifier = Modifier
