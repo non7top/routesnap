@@ -14,10 +14,10 @@ on:
         type: string
         default: 'debug'
       skip-build:
-        description: 'Skip building if APK is provided'
+        description: 'Skip building if APK is available'
         required: false
         type: boolean
-        default: false
+        default: true
 
 jobs:
   validate-apk:

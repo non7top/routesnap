@@ -17,25 +17,85 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Determine run context and get artifact info
+  check-prerequisites:
+    name: Check Prerequisites
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+      is-workflow-run: ${{ steps.check.outputs.is-workflow-run }}
+      parent-run-id: ${{ steps.check.outputs.parent-run-id }}
+    steps:
+    - name: Determine run context
+      id: check
+      run: |
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          echo "should-run=true" >> $GITHUB_OUTPUT
+          echo "is-workflow-run=false" >> $GITHUB_OUTPUT
+          echo "parent-run-id=" >> $GITHUB_OUTPUT
+        elif [ "${{ github.event.workflow_run.conclusion }}" == "success" ]; then
+          echo "should-run=true" >> $GITHUB_OUTPUT
+          echo "is-workflow-run=true" >> $GITHUB_OUTPUT
+          echo "parent-run-id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+        else
+          echo "should-run=false" >> $GITHUB_OUTPUT
+          echo "is-workflow-run=false" >> $GITHUB_OUTPUT
+          echo "parent-run-id=" >> $GITHUB_OUTPUT
+        fi
+
+  # Download artifacts from parent workflow if triggered by workflow_run
+  download-artifacts:
+    name: Download Artifacts
+    runs-on: ubuntu-latest
+    needs: [check-prerequisites]
+    if: needs.check-prerequisites.outputs.is-workflow-run == 'true'
+    steps:
+    - name: Download debug APK
+      uses: actions/download-artifact@v7
+      with:
+        pattern: app-debug-*
+        merge-multiple: true
+        github-token: ${{ github.token }}
+        run-id: ${{ needs.check-prerequisites.outputs.parent-run-id }}
+
+    - name: List downloaded files
+      run: |
+        echo "Downloaded files:"
+        ls -la app-*.apk 2>/dev/null || echo "No APK files found"
+
+    - name: Upload as reusable artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: debug-apk-for-validation
+        path: app-*.apk
+        if-no-files-found: error
+        retention-days: 1
+
+  # Validate APK - reuses build from Android CI/CD when available
   validate-apk:
     name: Validate APK
+    needs: [check-prerequisites, download-artifacts]
+    if: needs.check-prerequisites.outputs.should-run == 'true'
     uses: ./.github/workflows/reusable-validate-apk.yml
     with:
       build-type: debug
+      skip-build: ${{ needs.check-prerequisites.outputs.is-workflow-run == 'true' }}
 
+  # Test on emulator - reuses build from Android CI/CD when available
   test-on-emulator:
     name: Test on Emulator
-    needs: [validate-apk]
+    needs: [check-prerequisites, validate-apk]
+    if: needs.check-prerequisites.outputs.should-run == 'true'
     uses: ./.github/workflows/reusable-test-emulator.yml
     with:
       build-type: debug
-      api-level: 29
+      skip-build: ${{ needs.check-prerequisites.outputs.is-workflow-run == 'true' }}
 
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [validate-apk, test-on-emulator]
-    if: always()
+    needs: [check-prerequisites, validate-apk, test-on-emulator]
+    if: always() && needs.check-prerequisites.outputs.should-run == 'true'
 
     steps:
     - name: Generate summary
@@ -61,6 +121,10 @@ jobs:
         fi
 
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "- Validated APK: Available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "- Emulator screenshot: Available if test ran" >> $GITHUB_STEP_SUMMARY
+        echo "### Build Efficiency" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.check-prerequisites.outputs.is-workflow-run }}" == "true" ]; then
+          echo "- ♻️ Reused APK from Android CI/CD workflow" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚡ No duplicate builds performed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- 🔨 Built APK for validation (direct PR trigger)" >> $GITHUB_STEP_SUMMARY
+        fi
