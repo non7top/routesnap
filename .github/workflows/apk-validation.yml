@@ -1,6 +1,8 @@
 name: APK Validation Tests
 
 on:
+  pull_request:
+    branches: ["main", "master", "develop"]
   workflow_run:
     workflows: ["Android CI/CD"]
     types:
@@ -8,15 +10,17 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
   actions: read
 
 concurrency:
-  group: apk-validation-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  group: apk-validation-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   # ============================================================================
-  # Download artifacts from parent workflow (Android CI/CD)
+  # For PRs: Build APK locally (no artifact sharing across workflows)
+  # For workflow_run: Download from parent workflow
   # ============================================================================
 
   download-artifacts:
@@ -28,7 +32,9 @@ jobs:
       has-debug-apk: ${{ steps.check-debug.outputs.has-artifact }}
       has-release-apk: ${{ steps.check-release.outputs.has-artifact }}
     steps:
-    - name: Download debug APK
+    # Try to download from parent workflow (workflow_run trigger)
+    - name: Download debug APK (workflow_run)
+      if: github.event_name == 'workflow_run'
       uses: actions/download-artifact@v7
       with:
         pattern: app-debug-*
@@ -36,51 +42,64 @@ jobs:
         github-token: ${{ github.token }}
         run-id: ${{ github.event.workflow_run.id }}
 
+    # For PRs: build APK locally
+    - name: Set up JDK 17 (PR)
+      if: github.event_name == 'pull_request'
+      uses: actions/setup-java@v5
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew (PR)
+      if: github.event_name == 'pull_request'
+      run: chmod +x gradlew
+
+    - name: Build Debug APK (PR)
+      if: github.event_name == 'pull_request'
+      run: ./gradlew assembleDebug -PversionNameOverride=pr${{ github.event.pull_request.number }}-${{ github.sha }} --no-daemon
+      timeout-minutes: 15
+
+    - name: Find debug APK (PR)
+      id: find-debug-pr
+      if: github.event_name == 'pull_request'
+      run: |
+        APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" -type f | head -1)
+        if [ -n "$APK_PATH" ]; then
+          echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found debug APK: $APK_PATH"
+        fi
+
+    # Check and set paths for both triggers
     - name: Check if debug APK exists
       id: check-debug
       run: |
-        if ls app-debug-*.apk 1>/dev/null 2>&1; then
-          echo "has-artifact=true" >> $GITHUB_OUTPUT
+        if [ "${{ github.event_name }}" = "workflow_run" ]; then
+          if ls app-debug-*.apk 1>/dev/null 2>&1; then
+            echo "has-artifact=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-artifact=false" >> $GITHUB_OUTPUT
+          fi
         else
-          echo "has-artifact=false" >> $GITHUB_OUTPUT
+          if [ -n "${{ steps.find-debug-pr.outputs.apk-path }}" ]; then
+            echo "has-artifact=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-artifact=false" >> $GITHUB_OUTPUT
+          fi
         fi
 
     - name: Set debug APK path
       id: download-debug
       if: steps.check-debug.outputs.has-artifact == 'true'
       run: |
-        APK_PATH=$(find . -name "app-debug-*.apk" -type f | head -1)
+        if [ "${{ github.event_name }}" = "workflow_run" ]; then
+          APK_PATH=$(find . -name "app-debug-*.apk" -type f | head -1)
+        else
+          APK_PATH="${{ steps.find-debug-pr.outputs.apk-path }}"
+        fi
         if [ -n "$APK_PATH" ]; then
           echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
           echo "Found debug APK: $APK_PATH"
-        fi
-
-    - name: Download release APK (if available)
-      if: github.event.workflow_run.event != 'pull_request'
-      uses: actions/download-artifact@v7
-      with:
-        pattern: app-release-*
-        merge-multiple: true
-        github-token: ${{ github.token }}
-        run-id: ${{ github.event.workflow_run.id }}
-
-    - name: Check if release APK exists
-      id: check-release
-      run: |
-        if ls app-release-*.apk 1>/dev/null 2>&1; then
-          echo "has-artifact=true" >> $GITHUB_OUTPUT
-        else
-          echo "has-artifact=false" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Set release APK path
-      id: download-release
-      if: steps.check-release.outputs.has-artifact == 'true'
-      run: |
-        APK_PATH=$(find . -name "app-release-*.apk" -type f | head -1)
-        if [ -n "$APK_PATH" ]; then
-          echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
-          echo "Found release APK: $APK_PATH"
         fi
 
   # ============================================================================
