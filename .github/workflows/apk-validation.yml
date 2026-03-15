@@ -17,6 +17,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Download artifacts from parent workflow if triggered by workflow_run
+  download-artifacts:
+    name: Download Artifacts
+    if: github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download debug APK
+      uses: actions/download-artifact@v7
+      with:
+        pattern: app-debug-*
+        merge-multiple: true
+        github-token: ${{ github.token }}
+        run-id: ${{ github.event.workflow_run.id }}
+
+    - name: Upload as reusable artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: debug-apk-for-validation
+        path: app-*.apk
+        if-no-files-found: error
+        retention-days: 1
+
   # Run unit tests (always runs, independent of APK)
   unit-tests:
     name: Unit Tests
@@ -47,22 +69,25 @@ jobs:
         path: app/build/reports/tests/
         if-no-files-found: ignore
 
-  # Validate APK structure - reuses build from Android CI/CD when available
+  # Validate APK structure - builds for PR, reuses for workflow_run
   validate-apk:
     name: Validate APK
+    needs: [download-artifacts]
+    if: always()
     uses: ./.github/workflows/reusable-validate-apk.yml
     with:
       build-type: debug
       skip-build: ${{ github.event_name == 'workflow_run' }}
 
-  # Test on emulator - reuses APK from validate-apk (NO double-build)
+  # Test on emulator - builds for PR, reuses for workflow_run
   test-on-emulator:
     name: Test on Emulator
     needs: [validate-apk]
+    if: always()
     uses: ./.github/workflows/reusable-test-emulator.yml
     with:
       build-type: debug
-      skip-build: true
+      skip-build: ${{ github.event_name == 'workflow_run' }}
 
   summary:
     name: Test Summary
