@@ -1,8 +1,6 @@
 name: APK Validation Tests
 
 on:
-  pull_request:
-    branches: [ "main", "master", "develop" ]
   workflow_run:
     workflows: ["Android CI/CD"]
     types:
@@ -17,10 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Download artifacts from parent workflow if triggered by workflow_run
+  # Download artifacts from parent workflow
   download-artifacts:
     name: Download Artifacts
-    if: github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     steps:
     - name: Download debug APK
@@ -69,25 +66,23 @@ jobs:
         path: app/build/reports/tests/
         if-no-files-found: ignore
 
-  # Validate APK structure - builds for PR, reuses for workflow_run
+  # Validate APK structure - reuses APK from Android CI/CD
   validate-apk:
     name: Validate APK
     needs: [download-artifacts]
-    if: always()
     uses: ./.github/workflows/reusable-validate-apk.yml
     with:
       build-type: debug
-      skip-build: ${{ github.event_name == 'workflow_run' }}
+      skip-build: true
 
-  # Test on emulator - builds for PR, reuses for workflow_run
+  # Test on emulator - reuses APK from Android CI/CD
   test-on-emulator:
     name: Test on Emulator
     needs: [validate-apk]
-    if: always()
     uses: ./.github/workflows/reusable-test-emulator.yml
     with:
       build-type: debug
-      skip-build: ${{ github.event_name == 'workflow_run' }}
+      skip-build: true
 
   summary:
     name: Test Summary
@@ -130,10 +125,5 @@ jobs:
 
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Build Efficiency" >> $GITHUB_STEP_SUMMARY
-        if [ "${{ github.event_name }}" == "workflow_run" ]; then
-          echo "- ♻️ Reused APK from Android CI/CD workflow" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚡ No duplicate builds performed" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "- 🔨 Built APK for validation (direct PR trigger)" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️ Note: APK built once, reused for validation + emulator" >> $GITHUB_STEP_SUMMARY
-        fi
+        echo "- ♻️ Reused APK from Android CI/CD workflow" >> $GITHUB_STEP_SUMMARY
+        echo "- ⚡ No duplicate builds performed" >> $GITHUB_STEP_SUMMARY
