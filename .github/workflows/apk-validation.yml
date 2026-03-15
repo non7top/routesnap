@@ -106,7 +106,7 @@ jobs:
   # Validate APK structure - reuses build from Android CI/CD when available
   validate-apk:
     name: Validate APK
-    needs: [check-prerequisites, download-artifacts]
+    needs: [check-prerequisites]
     if: always() && needs.check-prerequisites.outputs.should-run == 'true'
     uses: ./.github/workflows/reusable-validate-apk.yml
     with:
