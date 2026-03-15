@@ -1,6 +1,7 @@
 package com.routesnap.app.rendering.service
 
 import android.content.Context
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Transformer
 import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.domain.model.TripManifest
@@ -22,6 +23,7 @@ class RenderManager @Inject constructor(
     private val _renderState = MutableStateFlow<RenderState>(RenderState.Idle)
     val renderState: StateFlow<RenderState> = _renderState.asStateFlow()
 
+    @OptIn(markerClass = UnstableApi::class)
     private var transformer: Transformer? = null
 
     /**
