@@ -1,4 +1,4 @@
-name: Android CI/CD
+name: CI/CD Pipeline
 
 on:
   push:
@@ -104,7 +104,7 @@ jobs:
         if-no-files-found: ignore
 
   # ============================================================================
-  # APK Build Jobs (single build, reused by validation jobs)
+  # APK Build (single build, reused by all validation jobs)
   # ============================================================================
 
   build-debug:
@@ -121,6 +121,151 @@ jobs:
     with:
       build-type: release
       version-name: ${{ github.event_name == 'pull_request' && format('pr{0}-{1}', github.event.pull_request.number, github.sha) || github.sha }}
+
+  # ============================================================================
+  # APK Validation (reuses APK from build-debug via artifacts)
+  # ============================================================================
+
+  validate-debug-apk:
+    name: Validate Debug APK
+    needs: [build-debug]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Download debug APK
+      uses: actions/download-artifact@v7
+      with:
+        pattern: app-debug-*
+        merge-multiple: true
+
+    - name: Find APK path
+      id: find-apk
+      run: |
+        APK_PATH=$(find . -name "app-debug-*.apk" -type f | head -1)
+        if [ -n "$APK_PATH" ]; then
+          echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found APK: $APK_PATH"
+        else
+          echo "No APK found!"
+          exit 1
+        fi
+
+    - name: Verify APK signature
+      run: |
+        if unzip -l "${{ steps.find-apk.outputs.apk-path }}" | grep -q "META-INF/"; then
+          echo "✓ APK contains META-INF directory"
+        else
+          echo "✗ APK does not contain META-INF directory"
+          exit 1
+        fi
+
+    - name: Verify APK structure
+      run: |
+        echo "=== APK Contents ==="
+        unzip -l "${{ steps.find-apk.outputs.apk-path }}" | head -50
+
+        echo ""
+        echo "=== Checking required files ==="
+
+        if unzip -l "${{ steps.find-apk.outputs.apk-path }}" | grep -q "AndroidManifest.xml"; then
+          echo "✓ AndroidManifest.xml found"
+        else
+          echo "✗ AndroidManifest.xml missing"
+          exit 1
+        fi
+
+        if unzip -l "${{ steps.find-apk.outputs.apk-path }}" | grep -q "classes.dex"; then
+          echo "✓ classes.dex found"
+        else
+          echo "✗ classes.dex missing"
+          exit 1
+        fi
+
+        if unzip -l "${{ steps.find-apk.outputs.apk-path }}" | grep -q "res/"; then
+          echo "✓ resources directory found"
+        else
+          echo "✗ resources directory missing"
+          exit 1
+        fi
+
+        echo ""
+        echo "=== APK Size ==="
+        du -h "${{ steps.find-apk.outputs.apk-path }}"
+
+  # ============================================================================
+  # Emulator Testing (reuses APK from build-debug via artifacts)
+  # ============================================================================
+
+  test-debug-on-emulator:
+    name: Test Debug on Emulator
+    needs: [build-debug]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Download debug APK
+      uses: actions/download-artifact@v7
+      with:
+        pattern: app-debug-*
+        merge-multiple: true
+
+    - name: Find APK path
+      id: find-apk
+      run: |
+        APK_PATH=$(find . -name "app-debug-*.apk" -type f | head -1)
+        if [ -n "$APK_PATH" ]; then
+          echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found APK: $APK_PATH"
+        else
+          echo "No APK found!"
+          exit 1
+        fi
+
+    - name: Enable KVM for emulator
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    - name: Start Android Emulator
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 29
+        target: default
+        arch: x86_64
+        profile: pixel_4
+        ram-size: 2048M
+        script: |
+          echo "Installing APK..."
+          adb install -r ${{ steps.find-apk.outputs.apk-path }}
+
+          echo "Launching app..."
+          adb shell am start -n com.routesnap.app/.MainActivity
+
+          echo "Waiting for app to start..."
+          sleep 10
+
+          echo "Checking for crashes..."
+          adb logcat -d | grep -E "FATAL|CRASH|AndroidRuntime" | tail -20 || echo "No crashes found"
+
+          echo "Taking screenshot..."
+          adb shell screencap -p /data/local/tmp/screenshot.png
+          adb pull /data/local/tmp/screenshot.png /tmp/emulator-screenshot.png
+
+    - name: Upload screenshot artifact
+      uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: emulator-screenshot-${{ github.run_id }}
+        path: /tmp/emulator-screenshot.png
+        if-no-files-found: ignore
 
   # ============================================================================
   # Release Job (tag-based releases only)
@@ -156,7 +301,7 @@ jobs:
 
   post-artifact-links:
     name: Post Artifact Links
-    needs: [build-debug, build-release]
+    needs: [build-debug, build-release, lint, dependency-check, unit-tests, validate-debug-apk, test-debug-on-emulator]
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && always()
 
