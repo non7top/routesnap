@@ -279,7 +279,7 @@ jobs:
 
     steps:
     - name: Download release APK
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         pattern: app-release-*
         merge-multiple: true
@@ -301,13 +301,13 @@ jobs:
 
   post-artifact-links:
     name: Post Artifact Links
-    needs: [build-debug, build-release, lint, dependency-check, unit-tests, validate-debug-apk, test-debug-on-emulator]
+    needs: [build-debug, lint, dependency-check, unit-tests, validate-debug-apk, test-debug-on-emulator]
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && always()
 
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         pattern: app-*
         merge-multiple: true
