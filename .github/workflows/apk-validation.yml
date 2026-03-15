@@ -75,7 +75,7 @@ jobs:
   validate-apk:
     name: Validate APK
     needs: [check-prerequisites, download-artifacts]
-    if: needs.check-prerequisites.outputs.should-run == 'true'
+    if: always() && needs.check-prerequisites.outputs.should-run == 'true'
     uses: ./.github/workflows/reusable-validate-apk.yml
     with:
       build-type: debug
@@ -85,7 +85,7 @@ jobs:
   test-on-emulator:
     name: Test on Emulator
     needs: [check-prerequisites, validate-apk]
-    if: needs.check-prerequisites.outputs.should-run == 'true'
+    if: always() && needs.check-prerequisites.outputs.should-run == 'true'
     uses: ./.github/workflows/reusable-test-emulator.yml
     with:
       build-type: debug
