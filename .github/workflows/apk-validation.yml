@@ -1,8 +1,6 @@
 name: APK Validation Tests
 
 on:
-  pull_request:
-    branches: ["main", "master", "develop"]
   workflow_run:
     workflows: ["Android CI/CD"]
     types:
@@ -10,16 +8,15 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
   actions: read
 
 concurrency:
-  group: apk-validation-${{ github.event.workflow_run.head_branch || github.head_ref || github.ref_name }}
+  group: apk-validation-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   # ============================================================================
-  # Download artifacts from parent workflow OR build locally for PRs
+  # Download artifacts from parent workflow (Android CI/CD)
   # ============================================================================
 
   download-artifacts:
@@ -30,20 +27,8 @@ jobs:
       release-apk-path: ${{ steps.download-release.outputs.apk-path }}
       has-debug-apk: ${{ steps.check-debug.outputs.has-artifact }}
       has-release-apk: ${{ steps.check-release.outputs.has-artifact }}
-      is-workflow-run: ${{ steps.check-trigger.outputs.is-workflow-run }}
     steps:
-    - name: Check trigger type
-      id: check-trigger
-      run: |
-        if [ "${{ github.event_name }}" = "workflow_run" ]; then
-          echo "is-workflow-run=true" >> $GITHUB_OUTPUT
-        else
-          echo "is-workflow-run=false" >> $GITHUB_OUTPUT
-        fi
-
-    # For workflow_run: download from parent workflow
-    - name: Download debug APK (workflow_run)
-      if: steps.check-trigger.outputs.is-workflow-run == 'true'
+    - name: Download debug APK
       uses: actions/download-artifact@v7
       with:
         pattern: app-debug-*
@@ -51,8 +36,27 @@ jobs:
         github-token: ${{ github.token }}
         run-id: ${{ github.event.workflow_run.id }}
 
-    - name: Download release APK (workflow_run)
-      if: steps.check-trigger.outputs.is-workflow-run == 'true' && github.event.workflow_run.event != 'pull_request'
+    - name: Check if debug APK exists
+      id: check-debug
+      run: |
+        if ls app-debug-*.apk 1>/dev/null 2>&1; then
+          echo "has-artifact=true" >> $GITHUB_OUTPUT
+        else
+          echo "has-artifact=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Set debug APK path
+      id: download-debug
+      if: steps.check-debug.outputs.has-artifact == 'true'
+      run: |
+        APK_PATH=$(find . -name "app-debug-*.apk" -type f | head -1)
+        if [ -n "$APK_PATH" ]; then
+          echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found debug APK: $APK_PATH"
+        fi
+
+    - name: Download release APK (if available)
+      if: github.event.workflow_run.event != 'pull_request'
       uses: actions/download-artifact@v7
       with:
         pattern: app-release-*
@@ -60,67 +64,7 @@ jobs:
         github-token: ${{ github.token }}
         run-id: ${{ github.event.workflow_run.id }}
 
-    # For PR: build APK locally
-    - name: Set up JDK 17 (PR)
-      if: steps.check-trigger.outputs.is-workflow-run == 'false'
-      uses: actions/setup-java@v5
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
-
-    - name: Grant execute permission for gradlew (PR)
-      if: steps.check-trigger.outputs.is-workflow-run == 'false'
-      run: chmod +x gradlew
-
-    - name: Build Debug APK (PR)
-      if: steps.check-trigger.outputs.is-workflow-run == 'false'
-      run: ./gradlew assembleDebug -PversionNameOverride=pr${{ github.event.pull_request.number }}-${{ github.sha }} --no-daemon
-      timeout-minutes: 15
-
-    - name: Find debug APK
-      id: find-debug
-      if: steps.check-trigger.outputs.is-workflow-run == 'false'
-      run: |
-        APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" -type f | head -1)
-        if [ -n "$APK_PATH" ]; then
-          echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
-          echo "Found debug APK: $APK_PATH"
-        fi
-
-    - name: Check if debug APK exists
-      id: check-debug
-      run: |
-        if [ "${{ steps.check-trigger.outputs.is-workflow-run }}" = "true" ]; then
-          if ls app-debug-*.apk 1>/dev/null 2>&1; then
-            echo "has-artifact=true" >> $GITHUB_OUTPUT
-          else
-            echo "has-artifact=false" >> $GITHUB_OUTPUT
-          fi
-        else
-          if [ -n "${{ steps.find-debug.outputs.apk-path }}" ]; then
-            echo "has-artifact=true" >> $GITHUB_OUTPUT
-          else
-            echo "has-artifact=false" >> $GITHUB_OUTPUT
-          fi
-        fi
-
-    - name: Set debug APK path
-      id: download-debug
-      if: steps.check-debug.outputs.has-artifact == 'true'
-      run: |
-        if [ "${{ steps.check-trigger.outputs.is-workflow-run }}" = "true" ]; then
-          APK_PATH=$(find . -name "app-debug-*.apk" -type f | head -1)
-        else
-          APK_PATH="${{ steps.find-debug.outputs.apk-path }}"
-        fi
-        if [ -n "$APK_PATH" ]; then
-          echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
-          echo "Found debug APK: $APK_PATH"
-        fi
-
-    - name: Check if release APK exists (workflow_run)
-      if: steps.check-trigger.outputs.is-workflow-run == 'true'
+    - name: Check if release APK exists
       id: check-release
       run: |
         if ls app-release-*.apk 1>/dev/null 2>&1; then
@@ -129,9 +73,9 @@ jobs:
           echo "has-artifact=false" >> $GITHUB_OUTPUT
         fi
 
-    - name: Set release APK path (workflow_run)
-      if: steps.check-release.outputs.has-artifact == 'true'
+    - name: Set release APK path
       id: download-release
+      if: steps.check-release.outputs.has-artifact == 'true'
       run: |
         APK_PATH=$(find . -name "app-release-*.apk" -type f | head -1)
         if [ -n "$APK_PATH" ]; then
@@ -140,7 +84,7 @@ jobs:
         fi
 
   # ============================================================================
-  # Validate APK structure - reuses APK from Android CI/CD or local build
+  # Validate APK structure - reuses APK from Android CI/CD
   # ============================================================================
 
   validate-debug-apk:
@@ -164,7 +108,7 @@ jobs:
       skip-build: true
 
   # ============================================================================
-  # Test on emulator - reuses APK from Android CI/CD or local build
+  # Test on emulator - reuses APK from Android CI/CD
   # ============================================================================
 
   test-debug-on-emulator:
@@ -244,9 +188,5 @@ jobs:
 
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Build Efficiency" >> $GITHUB_STEP_SUMMARY
-        if [ "${{ needs.download-artifacts.outputs.is-workflow-run }}" = "true" ]; then
-          echo "- ♻️ Reused APK from Android CI/CD workflow" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "- 🔨 Built APK locally for PR validation" >> $GITHUB_STEP_SUMMARY
-        fi
-        echo "- ⚡ No duplicate builds in validation workflow" >> $GITHUB_STEP_SUMMARY
+        echo "- ♻️ Reused APK from Android CI/CD workflow" >> $GITHUB_STEP_SUMMARY
+        echo "- ⚡ No duplicate builds performed" >> $GITHUB_STEP_SUMMARY
