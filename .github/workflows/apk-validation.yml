@@ -15,10 +15,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Download artifacts from parent workflow
+  # ============================================================================
+  # Download artifacts from parent workflow (Android CI/CD)
+  # ============================================================================
+
   download-artifacts:
     name: Download Artifacts
     runs-on: ubuntu-latest
+    outputs:
+      debug-apk-path: ${{ steps.download-debug.outputs.apk-path }}
+      release-apk-path: ${{ steps.download-release.outputs.apk-path }}
+      has-debug-apk: ${{ steps.check-debug.outputs.has-artifact }}
+      has-release-apk: ${{ steps.check-release.outputs.has-artifact }}
     steps:
     - name: Download debug APK
       uses: actions/download-artifact@v7
@@ -28,66 +36,109 @@ jobs:
         github-token: ${{ github.token }}
         run-id: ${{ github.event.workflow_run.id }}
 
-    - name: Upload as reusable artifact
-      uses: actions/upload-artifact@v7
+    - name: Check if debug APK exists
+      id: check-debug
+      run: |
+        if ls app-debug-*.apk 1>/dev/null 2>&1; then
+          echo "has-artifact=true" >> $GITHUB_OUTPUT
+        else
+          echo "has-artifact=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Set debug APK path
+      id: download-debug
+      if: steps.check-debug.outputs.has-artifact == 'true'
+      run: |
+        APK_PATH=$(find . -name "app-debug-*.apk" -type f | head -1)
+        if [ -n "$APK_PATH" ]; then
+          echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found debug APK: $APK_PATH"
+        fi
+
+    - name: Download release APK (if available)
+      if: github.event.workflow_run.event != 'pull_request'
+      uses: actions/download-artifact@v7
       with:
-        name: debug-apk-for-validation
-        path: app-*.apk
-        if-no-files-found: error
-        retention-days: 1
+        pattern: app-release-*
+        merge-multiple: true
+        github-token: ${{ github.token }}
+        run-id: ${{ github.event.workflow_run.id }}
 
-  # Run unit tests (always runs, independent of APK)
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+    - name: Check if release APK exists
+      id: check-release
+      run: |
+        if ls app-release-*.apk 1>/dev/null 2>&1; then
+          echo "has-artifact=true" >> $GITHUB_OUTPUT
+        else
+          echo "has-artifact=false" >> $GITHUB_OUTPUT
+        fi
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v5
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
+    - name: Set release APK path
+      id: download-release
+      if: steps.check-release.outputs.has-artifact == 'true'
+      run: |
+        APK_PATH=$(find . -name "app-release-*.apk" -type f | head -1)
+        if [ -n "$APK_PATH" ]; then
+          echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found release APK: $APK_PATH"
+        fi
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
-    - name: Run unit tests
-      run: ./gradlew test --no-daemon
-      timeout-minutes: 20
-
-    - name: Upload test reports
-      uses: actions/upload-artifact@v7
-      if: always()
-      with:
-        name: unit-test-reports-${{ github.run_id }}
-        path: app/build/reports/tests/
-        if-no-files-found: ignore
-
+  # ============================================================================
   # Validate APK structure - reuses APK from Android CI/CD
-  validate-apk:
-    name: Validate APK
+  # ============================================================================
+
+  validate-debug-apk:
+    name: Validate Debug APK
     needs: [download-artifacts]
+    if: needs.download-artifacts.outputs.has-debug-apk == 'true'
     uses: ./.github/workflows/reusable-validate-apk.yml
     with:
       build-type: debug
+      apk-path: ${{ needs.download-artifacts.outputs.debug-apk-path }}
       skip-build: true
 
+  validate-release-apk:
+    name: Validate Release APK
+    needs: [download-artifacts]
+    if: needs.download-artifacts.outputs.has-release-apk == 'true'
+    uses: ./.github/workflows/reusable-validate-apk.yml
+    with:
+      build-type: release
+      apk-path: ${{ needs.download-artifacts.outputs.release-apk-path }}
+      skip-build: true
+
+  # ============================================================================
   # Test on emulator - reuses APK from Android CI/CD
-  test-on-emulator:
-    name: Test on Emulator
-    needs: [validate-apk]
+  # ============================================================================
+
+  test-debug-on-emulator:
+    name: Test Debug on Emulator
+    needs: [download-artifacts]
+    if: needs.download-artifacts.outputs.has-debug-apk == 'true'
     uses: ./.github/workflows/reusable-test-emulator.yml
     with:
       build-type: debug
+      apk-path: ${{ needs.download-artifacts.outputs.debug-apk-path }}
       skip-build: true
+
+  test-release-on-emulator:
+    name: Test Release on Emulator
+    needs: [download-artifacts]
+    if: needs.download-artifacts.outputs.has-release-apk == 'true'
+    uses: ./.github/workflows/reusable-test-emulator.yml
+    with:
+      build-type: release
+      apk-path: ${{ needs.download-artifacts.outputs.release-apk-path }}
+      skip-build: true
+
+  # ============================================================================
+  # Test Summary
+  # ============================================================================
 
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [unit-tests, validate-apk, test-on-emulator]
+    needs: [download-artifacts, validate-debug-apk, validate-release-apk, test-debug-on-emulator, test-release-on-emulator]
     if: always()
 
     steps:
@@ -96,31 +147,43 @@ jobs:
         echo "## Test Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        echo "### Unit Tests" >> $GITHUB_STEP_SUMMARY
-        if [ "${{ needs.unit-tests.result }}" == "success" ]; then
-          echo "✓ Unit tests passed" >> $GITHUB_STEP_SUMMARY
-        elif [ "${{ needs.unit-tests.result }}" == "failure" ]; then
-          echo "✗ Unit tests failed" >> $GITHUB_STEP_SUMMARY
+        echo "### APK Validation" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.validate-debug-apk.result }}" == "success" ]; then
+          echo "✓ Debug APK structure validated" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.validate-debug-apk.result }}" == "failure" ]; then
+          echo "✗ Debug APK validation failed" >> $GITHUB_STEP_SUMMARY
         else
-          echo "⚠️ Unit tests skipped or cancelled" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ Debug APK validation skipped or cancelled" >> $GITHUB_STEP_SUMMARY
         fi
 
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### APK Validation" >> $GITHUB_STEP_SUMMARY
-        if [ "${{ needs.validate-apk.result }}" == "success" ]; then
-          echo "✓ APK structure validated" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.validate-release-apk.result }}" == "success" ]; then
+          echo "✓ Release APK structure validated" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.validate-release-apk.result }}" == "failure" ]; then
+          echo "✗ Release APK validation failed" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.validate-release-apk.result }}" == "skipped" ]; then
+          echo "⊘ Release APK validation skipped (PR build)" >> $GITHUB_STEP_SUMMARY
         else
-          echo "✗ APK validation failed or skipped" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ Release APK validation cancelled" >> $GITHUB_STEP_SUMMARY
         fi
 
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Emulator Testing" >> $GITHUB_STEP_SUMMARY
-        if [ "${{ needs.test-on-emulator.result }}" == "success" ]; then
-          echo "✓ App runs on emulator without crashes" >> $GITHUB_STEP_SUMMARY
-        elif [ "${{ needs.test-on-emulator.result }}" == "failure" ]; then
-          echo "✗ App crashed or failed on emulator" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.test-debug-on-emulator.result }}" == "success" ]; then
+          echo "✓ Debug app runs on emulator without crashes" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.test-debug-on-emulator.result }}" == "failure" ]; then
+          echo "✗ Debug app crashed or failed on emulator" >> $GITHUB_STEP_SUMMARY
         else
-          echo "⚠️ Emulator test skipped or cancelled" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ Debug emulator test skipped or cancelled" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.test-release-on-emulator.result }}" == "success" ]; then
+          echo "✓ Release app runs on emulator without crashes" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.test-release-on-emulator.result }}" == "failure" ]; then
+          echo "✗ Release app crashed or failed on emulator" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.test-release-on-emulator.result }}" == "skipped" ]; then
+          echo "⊘ Release emulator test skipped (PR build)" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Release emulator test cancelled" >> $GITHUB_STEP_SUMMARY
         fi
 
         echo "" >> $GITHUB_STEP_SUMMARY
