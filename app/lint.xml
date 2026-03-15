@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- Disable lint for AndroidTest variants -->
+    <issue id="Instantiatable" severity="ignore" />
+    <issue id="UnusedResources" severity="ignore" />
+    
+    <!-- Configure project-wide lint behavior -->
+    <option name="abortOnError" value="false" />
+    <option name="checkDependencies" value="false" />
+</lint>

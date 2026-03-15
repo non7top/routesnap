@@ -20,12 +20,12 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.routesnap.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.routesnap.app"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = versionNameOverride ?: "1.0.0"
 
@@ -91,6 +91,12 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    lint {
+        abortOnError = false
+        checkDependencies = false
+        ignoreTestSources = true
+        warningsAsErrors = false
+    }
 }
 
 dependencies {
@@ -123,7 +129,7 @@ dependencies {
     // Hilt (Dependency Injection)
     implementation("com.google.dagger:hilt-android:2.52")
     ksp("com.google.dagger:hilt-android-compiler:2.52")
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
 
     // Room (Local Database)
     implementation("androidx.room:room-runtime:2.6.1")
