@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: 'debug'
+      skip-build:
+        description: 'Skip building if APK is provided'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   validate-apk:
@@ -34,7 +39,7 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build APK if not provided
-      if: inputs.apk-path == ''
+      if: inputs.apk-path == '' && inputs.skip-build == false
       run: |
         ./gradlew assemble${{ inputs.build-type == 'release' && 'Release' || 'Debug' }} --no-daemon
       timeout-minutes: 10
@@ -110,4 +115,4 @@ jobs:
       with:
         name: validated-apk-${{ github.run_id }}
         path: ${{ steps.find-apk.outputs.apk_path }}
-        if-no-files-found: ignore
+        if-no-files-found: error

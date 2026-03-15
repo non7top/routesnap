@@ -18,6 +18,11 @@ on:
         required: false
         type: number
         default: 29
+      skip-build:
+        description: 'Skip building if APK is available'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   test-on-emulator:
@@ -39,7 +44,7 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build APK if not provided
-      if: inputs.apk-path == ''
+      if: inputs.apk-path == '' && inputs.skip-build == false
       run: |
         ./gradlew assemble${{ inputs.build-type == 'release' && 'Release' || 'Debug' }} --no-daemon
       timeout-minutes: 10
