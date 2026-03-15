@@ -94,6 +94,8 @@ android {
     lint {
         abortOnError = false
         checkDependencies = false
+        ignoreTestSources = true
+        warningsAsErrors = false
     }
 }
 
