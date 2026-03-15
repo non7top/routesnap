@@ -20,12 +20,12 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.routesnap.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.routesnap.app"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = versionNameOverride ?: "1.0.0"
 
