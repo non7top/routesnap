@@ -15,6 +15,7 @@ import javax.inject.Singleton
 /**
  * Manages video rendering using Media3 Transformer
  */
+@OptIn(UnstableApi::class)
 @Singleton
 class RenderManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -23,7 +24,6 @@ class RenderManager @Inject constructor(
     private val _renderState = MutableStateFlow<RenderState>(RenderState.Idle)
     val renderState: StateFlow<RenderState> = _renderState.asStateFlow()
 
-    @OptIn(UnstableApi::class)
     private var transformer: Transformer? = null
 
     /**
