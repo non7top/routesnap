@@ -23,7 +23,7 @@ class RenderManager @Inject constructor(
     private val _renderState = MutableStateFlow<RenderState>(RenderState.Idle)
     val renderState: StateFlow<RenderState> = _renderState.asStateFlow()
 
-    @OptIn(markerClass = UnstableApi::class)
+    @OptIn(UnstableApi::class)
     private var transformer: Transformer? = null
 
     /**
