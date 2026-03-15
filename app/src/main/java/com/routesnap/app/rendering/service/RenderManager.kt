@@ -1,7 +1,7 @@
 package com.routesnap.app.rendering.service
 
 import android.content.Context
-import androidx.media3.transformer.Transformer
+import androidx.media3.common.util.UnstableApi
 import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.domain.model.TripManifest
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -13,7 +13,11 @@ import javax.inject.Singleton
 
 /**
  * Manages video rendering using Media3 Transformer
+ * 
+ * Note: Actual Media3 Transformer implementation will be added in Phase 2.
+ * Currently this is a placeholder service for Phase 1 MVP.
  */
+@OptIn(UnstableApi::class)
 @Singleton
 class RenderManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -22,7 +26,7 @@ class RenderManager @Inject constructor(
     private val _renderState = MutableStateFlow<RenderState>(RenderState.Idle)
     val renderState: StateFlow<RenderState> = _renderState.asStateFlow()
 
-    private var transformer: Transformer? = null
+    // Transformer field will be added in Phase 2 when actual rendering is implemented
 
     /**
      * Start rendering a trip video
