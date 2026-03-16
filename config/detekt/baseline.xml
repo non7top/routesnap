@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues>
+    <ID>TooGenericExceptionCaught:TripRepository.kt$TripRepository$@Throws(IOException::class, SecurityException::class) override suspend fun getTrip(id: String): TripManifest?</ID>
+    <ID>TooGenericExceptionCaught:MetadataExtractor.kt$MetadataExtractor$@Suppress("BlockingMethodInNonBlockingContext") private fun extractMetadata(uri: Uri, context: Context): MediaMetadata?</ID>
+    <ID>TooGenericExceptionCaught:MetadataExtractor.kt$MetadataExtractor$try</ID>
+    <ID>TooGenericExceptionCaught:PickerViewModel.kt$PickerViewModel$try</ID>
+    <ID>TooGenericExceptionCaught:PickerViewModel.kt$PickerViewModel$try</ID>
+    <ID>TooGenericExceptionCaught:RenderViewModel.kt$RenderViewModel$try</ID>
+    <ID>TooGenericExceptionCaught:TimelineViewModel.kt$TimelineViewModel$try</ID>
+  </ManuallySuppressedIssues>
+  <CurrentIssues>
+  </CurrentIssues>
+</SmellBaseline>
