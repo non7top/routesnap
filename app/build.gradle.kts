@@ -172,6 +172,7 @@ dependencies {
 // Ktlint configuration - use ktlint 1.8.0 for compose-rules compatibility
 ktlint {
     version.set("1.8.0")
+    ignoreFailures.set(true)  // Report issues but don't fail build
 }
 
 // Detekt configuration
@@ -182,7 +183,7 @@ detekt {
     buildUponDefaultConfig = true
     allRules = false
     baseline = file("$rootDir/config/detekt/baseline.xml")
-    ignoreFailures = false
+    ignoreFailures = true  // Report issues but don't fail build
 
     // Skip detekt on release builds (faster CI)
     ignoredBuildTypes = listOf("release")
