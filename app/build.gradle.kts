@@ -4,6 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.2"
 }
 
 import java.util.Properties
@@ -94,8 +95,10 @@ android {
         checkDependencies = false
         ignoreTestSources = true
         warningsAsErrors = false
-        // Disable lint checks incompatible with Kotlin 2.0+
+        // DISABLED: Kotlin 2.0+ incompatibility - detector crashes with IncompatibleClassChangeError
+        // These checks are REPLACED by compose-rules via ktlint (see .editorconfig)
         // See: https://issuetracker.google.com/issues/330774752
+        // See: https://github.com/mrmans0n/compose-rules
         disable += "NullSafeMutableLiveData"
         disable += "RememberInComposition"
     }
@@ -155,4 +158,8 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // Ktlint - Compose rules for lint checks that work with Kotlin 2.0+
+    // Replaces broken Android lint detectors (NullSafeMutableLiveData, RememberInComposition)
+    ktlintRuleset("io.nlopez.compose.rules:ktlint:0.4.28")
 }
