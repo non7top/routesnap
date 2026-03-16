@@ -5,7 +5,7 @@ plugins {
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
     id("io.gitlab.arturbosch.detekt") version "1.23.8"
-    id("org.jlleitschuh.gradle.ktlint") version "12.1.2"
+    id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
 import java.util.Properties
@@ -167,6 +167,11 @@ dependencies {
     // Detekt - Compose rules for static analysis (works with Kotlin 2.0+)
     // Complements ktlint (formatting) with deep code analysis
     detektPlugins("io.nlopez.compose.rules:detekt:0.4.28")
+}
+
+// Ktlint configuration - use ktlint 1.8.0 for compose-rules compatibility
+ktlint {
+    version.set("1.8.0")
 }
 
 // Detekt configuration

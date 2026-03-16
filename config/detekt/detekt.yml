@@ -95,7 +95,7 @@ naming:
     active: true
   InvalidPackageDeclaration:
     active: true
-    rootPackage: ["com.routesnap"]
+    rootPackage: "com.routesnap"
   NoNameShadowing:
     active: true
   NonBooleanPropertyPrefixedWithIs:
