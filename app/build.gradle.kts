@@ -4,6 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("io.gitlab.arturbosch.detekt") version "1.23.8"
 }
 
 import java.util.Properties
@@ -154,4 +155,34 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // Detekt - Compose rules for static analysis (works with Kotlin 2.0+)
+    // Complements ktlint (formatting) with deep code analysis
+    detektPlugins("io.nlopez.compose.rules:detekt:0.4.28")
+}
+
+// Detekt configuration
+detekt {
+    toolVersion = "1.23.8"
+    source.setFrom("src/main/java", "src/test/java")
+    config.setFrom("$rootDir/config/detekt/detekt.yml")
+    buildUponDefaultConfig = true
+    allRules = false
+    baseline = file("$rootDir/config/detekt/baseline.xml")
+    ignoreFailures = false
+
+    // Skip detekt on release builds (faster CI)
+    ignoredBuildTypes = listOf("release")
+}
+
+// Configure detekt reports
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    reports {
+        html.required.set(true)
+        html.outputLocation.set(file("build/reports/detekt/detekt.html"))
+        sarif.required.set(true)  // For GitHub PR annotations
+        sarif.outputLocation.set(file("build/reports/detekt/detekt.sarif"))
+        txt.required.set(false)
+        xml.required.set(false)
+    }
 }
