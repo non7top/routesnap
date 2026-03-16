@@ -172,6 +172,13 @@ dependencies {
 // Ktlint configuration - use ktlint 1.8.0 for compose-rules compatibility
 ktlint {
     version.set("1.8.0")
+    kotlinScriptAdditionalPaths {
+        include(fileTree("scripts/"))
+    }
+    filter {
+        exclude("**/scripts/**")
+        include("**/*.kt")
+    }
 }
 
 // Detekt configuration
