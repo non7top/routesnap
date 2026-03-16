@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
 }
@@ -83,9 +84,6 @@ android {
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.15"
-    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -96,6 +94,9 @@ android {
         checkDependencies = false
         ignoreTestSources = true
         warningsAsErrors = false
+        // Disable NonNullableMutableLiveDataDetector - incompatible with Kotlin 2.0+
+        // See: https://issuetracker.google.com/issues/330774752
+        disable += "NullSafeMutableLiveData"
     }
 }
 
@@ -127,8 +128,8 @@ dependencies {
     implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     // Hilt (Dependency Injection)
-    implementation("com.google.dagger:hilt-android:2.52")
-    ksp("com.google.dagger:hilt-android-compiler:2.52")
+    implementation("com.google.dagger:hilt-android:2.57")
+    ksp("com.google.dagger:hilt-android-compiler:2.57")
     implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
 
     // Room (Local Database)
@@ -137,7 +138,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     // Coil (Image loading)
     implementation("io.coil-kt:coil-compose:2.7.0")
