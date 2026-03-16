@@ -5,6 +5,7 @@ plugins {
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
     id("io.gitlab.arturbosch.detekt") version "1.23.8"
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.2"
 }
 
 import java.util.Properties
@@ -22,7 +23,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.routesnap.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.routesnap.app"
@@ -95,17 +96,20 @@ android {
         checkDependencies = false
         ignoreTestSources = true
         warningsAsErrors = false
-        // Disable NonNullableMutableLiveDataDetector - incompatible with Kotlin 2.0+
+        // DISABLED: Kotlin 2.0+ incompatibility - detector crashes with IncompatibleClassChangeError
+        // These checks are REPLACED by compose-rules via ktlint (see .editorconfig)
         // See: https://issuetracker.google.com/issues/330774752
+        // See: https://github.com/mrmans0n/compose-rules
         disable += "NullSafeMutableLiveData"
+        disable += "RememberInComposition"
     }
 }
 
 dependencies {
     // Core Android
-    implementation("androidx.core:core-ktx:1.15.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0")
-    implementation("androidx.activity:activity-compose:1.9.0")
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
+    implementation("androidx.activity:activity-compose:1.10.1")
 
     // Jetpack Compose
     implementation(platform("androidx.compose:compose-bom:2024.11.00"))
@@ -115,7 +119,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.8.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
 
     // Media3 (Video/Photo processing)
     implementation("androidx.media3:media3-transformer:1.2.1")
@@ -126,7 +130,7 @@ dependencies {
     implementation("org.maplibre.gl:android-sdk:11.0.0")
 
     // ExifInterface (GPS metadata extraction)
-    implementation("androidx.exifinterface:exifinterface:1.3.7")
+    implementation("androidx.exifinterface:exifinterface:1.4.2")
 
     // Hilt (Dependency Injection)
     implementation("com.google.dagger:hilt-android:2.57")
@@ -134,12 +138,12 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
 
     // Room (Local Database)
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-runtime:2.8.4")
+    implementation("androidx.room:room-ktx:2.8.4")
+    ksp("androidx.room:room-compiler:2.8.4")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     // Coil (Image loading)
     implementation("io.coil-kt:coil-compose:2.7.0")
@@ -155,6 +159,10 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // Ktlint - Compose rules for lint checks that work with Kotlin 2.0+
+    // Replaces broken Android lint detectors (NullSafeMutableLiveData, RememberInComposition)
+    ktlintRuleset("io.nlopez.compose.rules:ktlint:0.4.28")
 
     // Detekt - Compose rules for static analysis (works with Kotlin 2.0+)
     // Complements ktlint (formatting) with deep code analysis
