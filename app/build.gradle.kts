@@ -84,7 +84,7 @@ android {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.15"
+        kotlinCompilerExtensionVersion = "2.0.21"
     }
     packaging {
         resources {
@@ -137,7 +137,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     // Coil (Image loading)
     implementation("io.coil-kt:coil-compose:2.7.0")
