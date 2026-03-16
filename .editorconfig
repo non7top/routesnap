@@ -1,0 +1,44 @@
+# EditorConfig configuration for RouteSnap
+# See: https://editorconfig.org
+
+root = true
+
+[*]
+end_of_line = lf
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.kt]
+# Kotlin specific settings
+ij_kotlin_imports_layout = *
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+
+# Ktlint with compose-rules
+# See: https://github.com/mrmans0n/compose-rules
+
+# Enable compose-rules
+compose_remember_missing_check = error
+compose_modifier_missing_check = error
+compose_mutable_params_check = error
+compose_vm_forwarding_check = error
+compose_multiple_emitters_check = error
+compose_param_order_check = error
+compose_unstable_collections = warning
+
+# Ktlint rules
+ktlint_function_naming_ignore_when_annotated_with = Composable
+ktlint_standard_function-naming = enabled
+ktlint_standard_class-naming = enabled
+ktlint_standard_package-name = enabled
+ktlint_standard_import-ordering = enabled
+ktlint_standard_max-line-length = disabled
+
+# Compose specific
+# Modifier parameter should be the first optional parameter
+compose_modifier_param_order_check = error
+
+# Don't allow mutable collections in @Composable parameters
+compose_collection_mutability_check = error
