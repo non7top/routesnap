@@ -141,11 +141,18 @@ jobs:
       with:
         pattern: app-debug-*
         merge-multiple: true
+        path: ./apk-download
+
+    - name: List downloaded files
+      run: |
+        echo "=== Downloaded files ==="
+        ls -la ./apk-download/
+        find ./apk-download/ -name "*.apk" -type f
 
     - name: Find APK path
       id: find-apk
       run: |
-        APK_PATH=$(find . -name "app-debug-*.apk" -type f | head -1)
+        APK_PATH=$(find ./apk-download/ -name "*.apk" -type f | head -1)
         if [ -n "$APK_PATH" ]; then
           echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
           echo "Found APK: $APK_PATH"
@@ -215,11 +222,12 @@ jobs:
       with:
         pattern: app-debug-*
         merge-multiple: true
+        path: ./apk-download
 
     - name: Find APK path
       id: find-apk
       run: |
-        APK_PATH=$(find . -name "app-debug-*.apk" -type f | head -1)
+        APK_PATH=$(find ./apk-download/ -name "*.apk" -type f | head -1)
         if [ -n "$APK_PATH" ]; then
           echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
           echo "Found APK: $APK_PATH"
