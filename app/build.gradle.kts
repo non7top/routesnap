@@ -125,7 +125,7 @@ dependencies {
     implementation("org.maplibre.gl:android-sdk:11.0.0")
 
     // ExifInterface (GPS metadata extraction)
-    implementation("androidx.exifinterface:exifinterface:1.3.7")
+    implementation("androidx.exifinterface:exifinterface:1.4.2")
 
     // Hilt (Dependency Injection)
     implementation("com.google.dagger:hilt-android:2.57")
