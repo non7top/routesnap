@@ -94,6 +94,9 @@ android {
         checkDependencies = false
         ignoreTestSources = true
         warningsAsErrors = false
+        // Disable NonNullableMutableLiveDataDetector - incompatible with Kotlin 2.0+
+        // See: https://issuetracker.google.com/issues/330774752
+        disable += "NullSafeMutableLiveData"
     }
 }
 
