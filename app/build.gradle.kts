@@ -122,9 +122,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
 
     // Media3 (Video/Photo processing)
-    implementation("androidx.media3:media3-transformer:1.2.1")
-    implementation("androidx.media3:media3-effect:1.2.1")
-    implementation("androidx.media3:media3-exoplayer:1.2.1")
+    implementation("androidx.media3:media3-transformer:1.9.3")
+    implementation("androidx.media3:media3-effect:1.9.3")
+    implementation("androidx.media3:media3-exoplayer:1.9.3")
 
     // MapLibre (Maps)
     implementation("org.maplibre.gl:android-sdk:11.0.0")
