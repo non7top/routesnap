@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues>
-    <ID>TooGenericExceptionCaught:TimelineViewModel.kt$TimelineViewModel$@Suppress("BlockingMethodInNonBlockingContext") override suspend fun getTrip(id: String): TripManifest?</ID>
+    <ID>TooGenericExceptionCaught:TimelineViewModel.kt$TimelineViewModel$try</ID>
     <ID>TooGenericExceptionCaught:PickerViewModel.kt$PickerViewModel$try</ID>
     <ID>TooGenericExceptionCaught:PickerViewModel.kt$PickerViewModel$try</ID>
     <ID>TooGenericExceptionCaught:RenderViewModel.kt$RenderViewModel$try</ID>
