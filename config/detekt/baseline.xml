@@ -1,13 +1,13 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues>
-    <ID>TooGenericExceptionCaught:TimelineViewModel.kt$TimelineViewModel$try</ID>
-    <ID>TooGenericExceptionCaught:PickerViewModel.kt$PickerViewModel$try</ID>
-    <ID>TooGenericExceptionCaught:PickerViewModel.kt$PickerViewModel$try</ID>
-    <ID>TooGenericExceptionCaught:RenderViewModel.kt$RenderViewModel$try</ID>
-    <ID>TooGenericExceptionCaught:MetadataExtractor.kt$MetadataExtractor$try</ID>
-    <ID>TooGenericExceptionCaught:MetadataExtractor.kt$MetadataExtractor$try</ID>
-    <ID>TooGenericExceptionCaught:TripRepository.kt$TripRepository$try</ID>
+    <ID>TooGenericExceptionCaught:TimelineViewModel.kt$try</ID>
+    <ID>TooGenericExceptionCaught:PickerViewModel.kt$try</ID>
+    <ID>TooGenericExceptionCaught:PickerViewModel.kt$try</ID>
+    <ID>TooGenericExceptionCaught:RenderViewModel.kt$try</ID>
+    <ID>TooGenericExceptionCaught:MetadataExtractor.kt$try</ID>
+    <ID>TooGenericExceptionCaught:MetadataExtractor.kt$try</ID>
+    <ID>TooGenericExceptionCaught:TripRepository.kt$try</ID>
   </ManuallySuppressedIssues>
   <CurrentIssues>
   </CurrentIssues>
