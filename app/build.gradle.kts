@@ -4,7 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
-    id("org.jlleitschuh.gradle.ktlint") version "12.1.2"
+    id("io.gitlab.arturbosch.detekt") version "1.23.8"
+    id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
 import java.util.Properties
@@ -117,7 +118,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.navigation:navigation-compose:2.8.0")
+    implementation("androidx.navigation:navigation-compose:2.9.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
 
     // Media3 (Video/Photo processing)
@@ -134,7 +135,7 @@ dependencies {
     // Hilt (Dependency Injection)
     implementation("com.google.dagger:hilt-android:2.57")
     ksp("com.google.dagger:hilt-android-compiler:2.57")
-    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     // Room (Local Database)
     implementation("androidx.room:room-runtime:2.8.4")
@@ -162,4 +163,46 @@ dependencies {
     // Ktlint - Compose rules for lint checks that work with Kotlin 2.0+
     // Replaces broken Android lint detectors (NullSafeMutableLiveData, RememberInComposition)
     ktlintRuleset("io.nlopez.compose.rules:ktlint:0.4.28")
+
+    // Detekt - Compose rules for static analysis (works with Kotlin 2.0+)
+    // Complements ktlint (formatting) with deep code analysis
+    detektPlugins("io.nlopez.compose.rules:detekt:0.4.28")
+}
+
+// Ktlint configuration - use ktlint 1.8.0 for compose-rules compatibility
+ktlint {
+    version.set("1.8.0")
+    kotlinScriptAdditionalPaths {
+        include(fileTree("scripts/"))
+    }
+    filter {
+        exclude("**/scripts/**")
+        include("**/*.kt")
+    }
+}
+
+// Detekt configuration
+detekt {
+    toolVersion = "1.23.8"
+    source.setFrom("src/main/java", "src/test/java")
+    config.setFrom("$rootDir/config/detekt/detekt.yml")
+    buildUponDefaultConfig = true
+    allRules = false
+    baseline = file("$rootDir/config/detekt/baseline.xml")
+    ignoreFailures = false
+
+    // Skip detekt on release builds (faster CI)
+    ignoredBuildTypes = listOf("release")
+}
+
+// Configure detekt reports
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    reports {
+        html.required.set(true)
+        html.outputLocation.set(file("build/reports/detekt/detekt.html"))
+        sarif.required.set(true)  // For GitHub PR annotations
+        sarif.outputLocation.set(file("build/reports/detekt/detekt.sarif"))
+        txt.required.set(false)
+        xml.required.set(false)
+    }
 }
