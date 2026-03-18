@@ -127,7 +127,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.9.3")
 
     // MapLibre (Maps)
-    implementation("org.maplibre.gl:android-sdk:11.0.0")
+    implementation("org.maplibre.gl:android-sdk:13.0.1")
 
     // ExifInterface (GPS metadata extraction)
     implementation("androidx.exifinterface:exifinterface:1.4.2")
