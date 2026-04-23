@@ -1,15 +1,41 @@
 package com.routesnap.app.ui.style
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -27,7 +53,7 @@ data class StyleUiState(
     val selectedTemplate: TemplatePreset = TemplatePreset.BALANCED,
     val musicSelected: Boolean = false,
     val musicTitle: String? = null,
-    val isProcessing: Boolean = false
+    val isProcessing: Boolean = false,
 )
 
 /**
@@ -36,15 +62,16 @@ data class StyleUiState(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StyleScreen(
-    tripId: String?,
     onNavigateBack: () -> Unit,
     onNavigateToRender: () -> Unit,
-    viewModel: StyleViewModel = hiltViewModel()
+    modifier: Modifier = Modifier,
+    viewModel: StyleViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     RouteSnapTheme {
         Scaffold(
+            modifier = modifier,
             topBar = {
                 TopAppBar(
                     title = { Text("Style Video") },
@@ -56,8 +83,8 @@ fun StyleScreen(
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
                 )
             },
             floatingActionButton = {
@@ -81,7 +108,7 @@ fun StyleScreen(
                     SectionTitle(title = "Aspect Ratio", icon = Icons.Default.Crop)
                     AspectRatioSelector(
                         selectedAspectRatio = uiState.selectedAspectRatio,
-                        onAspectRatioSelected = { viewModel.updateAspectRatio(it) }
+                        onAspectRatioSelect = { viewModel.updateAspectRatio(it) }
                     )
                 }
 
@@ -90,7 +117,7 @@ fun StyleScreen(
                     SectionTitle(title = "Template", icon = Icons.Default.Movie)
                     TemplateSelector(
                         selectedTemplate = uiState.selectedTemplate,
-                        onTemplateSelected = { viewModel.updateTemplate(it) }
+                        onTemplateSelect = { viewModel.updateTemplate(it) }
                     )
                 }
 
@@ -100,7 +127,7 @@ fun StyleScreen(
                     MusicSelector(
                         musicSelected = uiState.musicSelected,
                         musicTitle = uiState.musicTitle,
-                        onMusicSelected = { viewModel.selectMusic() }
+                        onMusicSelect = { viewModel.selectMusic() }
                     )
                 }
 
@@ -148,7 +175,7 @@ fun StyleScreen(
 @Composable
 private fun SectionTitle(
     title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically
@@ -170,7 +197,7 @@ private fun SectionTitle(
 @Composable
 private fun AspectRatioSelector(
     selectedAspectRatio: AspectRatio,
-    onAspectRatioSelected: (AspectRatio) -> Unit
+    onAspectRatioSelect: (AspectRatio) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         AspectRatio.values().forEach { ratio ->
@@ -179,7 +206,7 @@ private fun AspectRatioSelector(
                     .fillMaxWidth()
                     .selectable(
                         selected = selectedAspectRatio == ratio,
-                        onClick = { onAspectRatioSelected(ratio) }
+                        onClick = { onAspectRatioSelect(ratio) }
                     ),
                 border = if (selectedAspectRatio == ratio) {
                     BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
@@ -221,7 +248,7 @@ private fun AspectRatioSelector(
 @Composable
 private fun TemplateSelector(
     selectedTemplate: TemplatePreset,
-    onTemplateSelected: (TemplatePreset) -> Unit
+    onTemplateSelect: (TemplatePreset) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         TemplatePreset.values().forEach { template ->
@@ -230,7 +257,7 @@ private fun TemplateSelector(
                     .fillMaxWidth()
                     .selectable(
                         selected = selectedTemplate == template,
-                        onClick = { onTemplateSelected(template) }
+                        onClick = { onTemplateSelect(template) }
                     ),
                 border = if (selectedTemplate == template) {
                     BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
@@ -290,11 +317,11 @@ private fun TemplateSelector(
 private fun MusicSelector(
     musicSelected: Boolean,
     musicTitle: String?,
-    onMusicSelected: () -> Unit
+    onMusicSelect: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        onClick = onMusicSelected,
+        onClick = onMusicSelect,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )

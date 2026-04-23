@@ -1,6 +1,11 @@
 package com.routesnap.app.data.local
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Update
 import com.routesnap.app.domain.model.RenderStatus
 import kotlinx.coroutines.flow.Flow
 
@@ -9,7 +14,6 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 interface TripManifestDao {
-
     @Query("SELECT * FROM trip_manifests ORDER BY createdAt DESC")
     fun getAllTrips(): Flow<List<TripManifestEntity>>
 

@@ -1,12 +1,42 @@
 package com.routesnap.app.ui.render
 
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -25,7 +55,7 @@ data class RenderUiState(
     val eta: String? = null,
     val isComplete: Boolean = false,
     val error: String? = null,
-    val outputPath: String? = null
+    val outputPath: String? = null,
 )
 
 /**
@@ -37,7 +67,8 @@ fun RenderScreen(
     tripId: String?,
     onNavigateBack: () -> Unit,
     onNavigateToShare: () -> Unit,
-    viewModel: RenderViewModel = hiltViewModel()
+    modifier: Modifier = Modifier,
+    viewModel: RenderViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -46,15 +77,17 @@ fun RenderScreen(
     }
 
     // Auto-navigate when complete
+    val currentOnNavigateToShare by rememberUpdatedState(onNavigateToShare)
     LaunchedEffect(uiState.isComplete) {
         if (uiState.isComplete) {
             kotlinx.coroutines.delay(1500)
-            onNavigateToShare()
+            currentOnNavigateToShare()
         }
     }
 
     RouteSnapTheme {
         Scaffold(
+            modifier = modifier,
             topBar = {
                 TopAppBar(
                     title = { Text("Rendering") },
@@ -68,8 +101,8 @@ fun RenderScreen(
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
                 )
             }
         ) { paddingValues ->
@@ -83,9 +116,8 @@ fun RenderScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(32.dp)
                 ) {
-                    // Animated icon
+                    // Render icon
                     RenderIcon(
-                        isRendering = uiState.isRendering,
                         isComplete = uiState.isComplete,
                         isError = uiState.error != null
                     )
@@ -104,7 +136,7 @@ fun RenderScreen(
                         Text(
                             text = uiState.error!!,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error,
                         )
                     }
 
@@ -125,7 +157,7 @@ fun RenderScreen(
                         CircularProgressIndicator(
                             progress = uiState.progress / 100f,
                             modifier = Modifier.size(120.dp),
-                            strokeWidth = 8.dp
+                            strokeWidth = 8.dp,
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -140,7 +172,7 @@ fun RenderScreen(
                     // Retry button on error
                     if (uiState.error != null) {
                         Spacer(modifier = Modifier.height(24.dp))
-                        Button(onClick = { /* TODO: Retry */ }) {
+                        Button(onClick = { /* Retry rendering */ }) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Retry")
@@ -154,9 +186,8 @@ fun RenderScreen(
 
 @Composable
 private fun RenderIcon(
-    isRendering: Boolean,
     isComplete: Boolean,
-    isError: Boolean
+    isError: Boolean,
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "render")
 
@@ -165,9 +196,9 @@ private fun RenderIcon(
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
             animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
+            repeatMode = RepeatMode.Restart,
         ),
-        label = "rotation"
+        label = "rotation",
     )
 
     val iconSize = 96.dp

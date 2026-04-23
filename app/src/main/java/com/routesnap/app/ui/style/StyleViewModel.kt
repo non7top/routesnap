@@ -42,7 +42,7 @@ class StyleViewModel @Inject constructor() : ViewModel() {
      * Select music (placeholder for now)
      */
     fun selectMusic() {
-        // TODO: Implement music picker
+        // Placeholder: Implement music picker in Phase 2
         _uiState.value = _uiState.value.copy(
             musicSelected = !_uiState.value.musicSelected,
             musicTitle = if (!_uiState.value.musicSelected) "Default Track" else null

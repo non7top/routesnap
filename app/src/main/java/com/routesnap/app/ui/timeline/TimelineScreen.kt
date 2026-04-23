@@ -2,14 +2,45 @@ package com.routesnap.app.ui.timeline
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,13 +62,13 @@ data class TimelineUiState(
     val clusters: List<TimelineCluster> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val tripId: String? = null
+    val tripId: String? = null,
 )
 
 data class TimelineCluster(
     val id: String,
     val name: String,
-    val segmentIndices: List<Int>
+    val segmentIndices: List<Int>,
 )
 
 /**
@@ -49,7 +80,8 @@ fun TimelineScreen(
     tripId: String?,
     onNavigateBack: () -> Unit,
     onNavigateToStyle: () -> Unit,
-    viewModel: TimelineViewModel = hiltViewModel()
+    modifier: Modifier = Modifier,
+    viewModel: TimelineViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -59,6 +91,7 @@ fun TimelineScreen(
 
     RouteSnapTheme {
         Scaffold(
+            modifier = modifier,
             topBar = {
                 TopAppBar(
                     title = { Text("Review Timeline") },
@@ -79,8 +112,8 @@ fun TimelineScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
                         navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
                 )
             }
         ) { paddingValues ->
@@ -107,7 +140,7 @@ fun TimelineScreen(
 private fun TimelineContent(
     uiState: TimelineUiState,
     onRemoveSegment: (TripSegment) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     LazyColumn(
         modifier = modifier.padding(horizontal = 16.dp),
@@ -189,7 +222,7 @@ private fun ClusterHeader(clusterName: String, segmentCount: Int) {
 private fun TimelineItem(
     segment: TripSegment,
     index: Int,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),

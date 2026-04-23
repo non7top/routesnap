@@ -15,5 +15,5 @@ data class TripManifestEntity(
     val createdAt: Long,
     val jsonData: String, // Serialized TripManifest
     val status: RenderStatus,
-    val outputPath: String? = null
+    val outputPath: String? = null,
 )
