@@ -11,28 +11,27 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [TripManifestEntity::class],
     version = 1,
-    exportSchema = false
+    exportSchema = false,
 )
 abstract class RouteSnapDatabase : RoomDatabase() {
-
     abstract fun tripManifestDao(): TripManifestDao
 
     companion object {
         @Volatile
-        private var INSTANCE: RouteSnapDatabase? = null
+        private var instance: RouteSnapDatabase? = null
 
-        fun getDatabase(context: Context): RouteSnapDatabase {
-            return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    RouteSnapDatabase::class.java,
-                    "routesnap_database"
-                )
-                    .fallbackToDestructiveMigration()
-                    .build()
-                INSTANCE = instance
-                instance
+        fun getDatabase(context: Context): RouteSnapDatabase =
+            instance ?: synchronized(this) {
+                val dbInstance =
+                    Room.databaseBuilder(
+                        context.applicationContext,
+                        RouteSnapDatabase::class.java,
+                        "routesnap_database",
+                    )
+                        .fallbackToDestructiveMigration()
+                        .build()
+                instance = dbInstance
+                dbInstance
             }
-        }
     }
 }

@@ -10,12 +10,6 @@ import java.io.File
  */
 class StorageHelper(private val context: Context) {
 
-    companion object {
-        private const val TAG = "StorageHelper"
-        private const val APP_DIR = "RouteSnap"
-        private const val OUTPUT_DIR = "output"
-    }
-
     /**
      * Get the app's output directory for rendered videos
      * Uses external files dir which is app-specific and doesn't require storage permissions
@@ -90,5 +84,11 @@ class StorageHelper(private val context: Context) {
                 }
             }
         }
+    }
+
+    companion object {
+        private const val TAG = "StorageHelper"
+        private const val APP_DIR = "RouteSnap"
+        private const val OUTPUT_DIR = "output"
     }
 }

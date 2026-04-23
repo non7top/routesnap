@@ -13,16 +13,13 @@ import javax.inject.Singleton
 
 /**
  * Manages video rendering using Media3 Transformer
- * 
+ *
  * Note: Actual Media3 Transformer implementation will be added in Phase 2.
  * Currently this is a placeholder service for Phase 1 MVP.
  */
 @OptIn(UnstableApi::class)
 @Singleton
-class RenderManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val tripRepository: TripRepository
-) {
+class RenderManager @Inject constructor() {
     private val _renderState = MutableStateFlow<RenderState>(RenderState.Idle)
     val renderState: StateFlow<RenderState> = _renderState.asStateFlow()
 
@@ -34,9 +31,8 @@ class RenderManager @Inject constructor(
     fun startRendering(trip: TripManifest) {
         _renderState.value = RenderState.Rendering(0, "Initializing...")
 
-        // TODO: Implement actual Media3 Transformer pipeline
-        // For now, this is a placeholder for Phase 1
-        // The actual implementation will be in Phase 2
+        // Media3 Transformer pipeline will be implemented in Phase 2
+        // trip parameter will be used in Phase 2
     }
 
     /**

@@ -19,37 +19,34 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+    @Provides
+    @Singleton
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+    ): RouteSnapDatabase = RouteSnapDatabase.getDatabase(context)
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): RouteSnapDatabase {
-        return RouteSnapDatabase.getDatabase(context)
-    }
+    fun provideTripManifestDao(
+        database: RouteSnapDatabase,
+    ): TripManifestDao = database.tripManifestDao()
 
     @Provides
     @Singleton
-    fun provideTripManifestDao(database: RouteSnapDatabase): TripManifestDao {
-        return database.tripManifestDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideContentResolver(@ApplicationContext context: Context): ContentResolver {
-        return context.contentResolver
-    }
+    fun provideContentResolver(
+        @ApplicationContext context: Context,
+    ): ContentResolver = context.contentResolver
 
     @Provides
     @Singleton
     fun provideTripRepository(
         tripManifestDao: TripManifestDao,
-        contentResolver: ContentResolver
-    ): TripRepository {
-        return TripRepository(tripManifestDao, contentResolver)
-    }
+        contentResolver: ContentResolver,
+    ): TripRepository = TripRepository(tripManifestDao, contentResolver)
 
     @Provides
     @Singleton
-    fun provideStorageHelper(@ApplicationContext context: Context): StorageHelper {
-        return StorageHelper(context)
-    }
+    fun provideStorageHelper(
+        @ApplicationContext context: Context,
+    ): StorageHelper = StorageHelper(context)
 }

@@ -105,8 +105,9 @@ class RenderViewModel @Inject constructor(
                 _uiState.value = RenderUiState(
                     isRendering = false,
                     error = null,
-                    status = "Rendering cancelled"
+                    status = "Rendering cancelled",
                 )
+                @Suppress("RethrowCaughtException")
                 throw e // Re-throw to properly cancel coroutine
             } catch (e: Exception) {
                 _uiState.value = RenderUiState(

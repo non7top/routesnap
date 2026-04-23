@@ -20,16 +20,6 @@ import javax.inject.Inject
  */
 @AndroidEntryPoint
 class RenderForegroundService : Service() {
-
-    companion object {
-        const val CHANNEL_ID = "routesnap_render_channel"
-        const val NOTIFICATION_ID = 1001
-        const val EXTRA_PROGRESS = "extra_progress"
-        const val EXTRA_STATUS = "extra_status"
-
-        const val ACTION_CANCEL = "action_cancel"
-    }
-
     @Inject
     lateinit var renderManager: RenderManager
 
@@ -38,13 +28,18 @@ class RenderForegroundService : Service() {
         createNotificationChannel()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         when (intent?.action) {
             ACTION_CANCEL -> {
                 renderManager.cancelRendering()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
+
             else -> {
                 // Start rendering notification
                 startForeground(NOTIFICATION_ID, createNotification(0, "Initializing..."))
@@ -59,26 +54,30 @@ class RenderForegroundService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Video Rendering",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows progress of video rendering"
-                setShowBadge(false)
-            }
+            val channel =
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "Video Rendering",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Shows progress of video rendering"
+                    setShowBadge(false)
+                }
 
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }
     }
 
-    private fun createNotification(progress: Int, status: String): Notification {
+    private fun createNotification(
+        progress: Int,
+        status: String,
+    ): Notification {
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
             Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_IMMUTABLE,
         )
 
         val cancelIntent = Intent(this, RenderForegroundService::class.java).apply {
@@ -88,7 +87,7 @@ class RenderForegroundService : Service() {
             this,
             0,
             cancelIntent,
-            PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_IMMUTABLE,
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -97,8 +96,16 @@ class RenderForegroundService : Service() {
             .setSmallIcon(android.R.drawable.ic_menu_gallery)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .setProgress(100, progress, progress == 0)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", cancelPendingIntent)
+            .setProgress(
+                100,
+                progress,
+                progress == 0,
+            )
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "Cancel",
+                cancelPendingIntent,
+            )
             .build()
     }
 
@@ -110,5 +117,14 @@ class RenderForegroundService : Service() {
         val notification = createNotification(progress, status)
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    companion object {
+        const val CHANNEL_ID = "routesnap_render_channel"
+        const val NOTIFICATION_ID = 1001
+        const val EXTRA_PROGRESS = "extra_progress"
+        const val EXTRA_STATUS = "extra_status"
+
+        const val ACTION_CANCEL = "action_cancel"
     }
 }

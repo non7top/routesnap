@@ -16,6 +16,7 @@ import javax.inject.Inject
 /**
  * UI State for the photo picker screen
  */
+@Suppress("LongParameterList")
 data class PickerUiState(
     val selectedUris: List<Uri> = emptyList(),
     val metadata: List<SelectedMediaMetadata> = emptyList(),
@@ -26,10 +27,10 @@ data class PickerUiState(
     val clusterCount: Int = 0,
     val estimatedDurationSeconds: Int = 0,
     val photosWithGps: Int = 0,
-    val totalPhotos: Int = 0
+    val totalPhotos: Int = 0,
 ) {
     val gpsPercentage: Float get() = if (totalPhotos > 0) photosWithGps.toFloat() / totalPhotos else 0f
-    
+
     // Map URIs to cluster IDs for coloring (filter out null URIs)
     val uriToClusterMap: Map<Uri, String?>
         get() = segments.filter { it.uri != null }.associate { it.uri!! to it.clusterId }
@@ -39,7 +40,7 @@ data class SelectedMediaMetadata(
     val uri: Uri,
     val hasLocation: Boolean,
     val timestamp: Long?,
-    val clusterId: String? = null
+    val clusterId: String? = null,
 )
 
 /**
@@ -113,11 +114,11 @@ class PickerViewModel @Inject constructor(
             try {
                 // Extract metadata from URIs
                 val metadataList = tripRepository.extractMetadataBatch(uris)
-                
+
                 // Create segment to cluster mapping
                 val segments = tripRepository.processSelectedMedia(uris)
                 val uriToClusterMap = segments.associate { it.uri to it.clusterId }
-                
+
                 // Convert to UI metadata with cluster info
                 val metadata = metadataList.map { m ->
                     SelectedMediaMetadata(

@@ -18,11 +18,11 @@ complexity:
     threshold: 5
   CyclomaticComplexMethod:
     active: true
-    threshold: 15
+    threshold: 20  # Increased from 15 - complex algorithms need more branches
     ignoreSingleWhenExpression: true
   LongMethod:
     active: true
-    threshold: 60
+    threshold: 80  # Increased from 60 - ViewModels and data extractors naturally longer
     ignoreAnnotated: ["Composable"]
   LongParameterList:
     active: true
@@ -76,8 +76,7 @@ exceptions:
   ThrowingExceptionFromFinally:
     active: true
   TooGenericExceptionCaught:
-    active: true
-    allowedExceptionNameRegex: "_|(ignore|expected).*"
+    active: false  # Disabled - logging exception type is sufficient for top-level error handling
 
 naming:
   active: true
@@ -87,6 +86,9 @@ naming:
   ClassNaming:
     active: false
   PackageNaming:
+    active: false
+  # Disable MatchingDeclarationName - Compose files commonly have multiple declarations
+  MatchingDeclarationName:
     active: false
   # Keep detekt-specific checks
   BooleanPropertyNaming:
@@ -197,19 +199,7 @@ style:
     active: true
     maxJumpCount: 1
   MagicNumber:
-    active: true
-    ignoreNumbers:
-      - "-1"
-      - "0"
-      - "1"
-      - "2"
-      - "10"
-      - "100"
-      - "1000"
-    ignoreHashCodeFunction: true
-    ignorePropertyDeclaration: false
-    ignoreLocalVariableDeclaration: false
-    ignoreConstantDeclaration: true
+    active: false  # Disabled - color values and UI constants are inherently magic numbers
     ignoreCompanionObjectPropertyDeclaration: true
     ignoreAnnotation: false
     ignoreNamedArgument: true

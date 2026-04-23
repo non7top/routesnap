@@ -13,45 +13,46 @@ import kotlinx.coroutines.withContext
  * Clustering configuration parameters
  */
 data class ClusteringConfig(
-    val maxDistanceKm: Double = 5.0,        // Max distance within a cluster
-    val maxTimeGapHours: Long = 4,          // Max time gap within a cluster
-    val burstModeThreshold: Int = 50,       // Photos in time window to trigger burst mode
-    val burstModeWindowMinutes: Long = 10,  // Time window for burst detection
-    val burstModeKeepCount: Int = 3,        // Photos to keep in burst mode
-    val photoDurationMs: Long = 4000,       // Default duration per photo
-    val videoHighlightDurationMs: Long = 5000 // Default duration for video highlights
+    val maxDistanceKm: Double = 5.0, // Max distance within a cluster
+    val maxTimeGapHours: Long = 4, // Max time gap within a cluster
+    val burstModeThreshold: Int = 50, // Photos in time window to trigger burst mode
+    val burstModeWindowMinutes: Long = 10, // Time window for burst detection
+    val burstModeKeepCount: Int = 3, // Photos to keep in burst mode
+    val photoDurationMs: Long = 4000, // Default duration per photo
+    val videoHighlightDurationMs: Long = 5000, // Default duration for video highlights
 )
 
 /**
  * Smart clustering algorithm for grouping photos by location and time
  */
-class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfig()) {
-
-    companion object {
-        private const val TAG = "ClusteringAlgorithm"
-    }
-
+class ClusteringAlgorithm(
+    private val config: ClusteringConfig = ClusteringConfig(),
+) {
     /**
      * Cluster media metadata into logical groups
      * Returns a list of TripSegments with cluster assignments
      */
     suspend fun cluster(
-        metadataList: List<MediaMetadata>
-    ): List<TripSegment> = withContext(Dispatchers.Default) {
-        if (metadataList.isEmpty()) return@withContext emptyList()
+        metadataList: List<MediaMetadata>,
+    ): List<TripSegment> =
+        withContext(Dispatchers.Default) {
+            if (metadataList.isEmpty()) return@withContext emptyList()
 
-        // Sort by timestamp (files without timestamp go to the end)
-        val sorted = metadataList.sortedWith(compareBy({ it.timestamp == null }, { it.timestamp ?: 0 }))
+            // Sort by timestamp (files without timestamp go to the end)
+            val sorted =
+                metadataList.sortedWith(
+                    compareBy({ it.timestamp == null }, { it.timestamp ?: 0 }),
+                )
 
-        // Apply burst mode filtering if needed
-        val filtered = applyBurstModeFiltering(sorted)
+            // Apply burst mode filtering if needed
+            val filtered = applyBurstModeFiltering(sorted)
 
-        // Group into clusters
-        val clusters = groupIntoClusters(filtered)
+            // Group into clusters
+            val clusters = groupIntoClusters(filtered)
 
-        // Convert to TripSegments with proper ordering and map transitions
-        buildSegmentList(clusters)
-    }
+            // Convert to TripSegments with proper ordering and map transitions
+            buildSegmentList(clusters)
+        }
 
     /**
      * Apply burst mode filtering to reduce redundant photos
@@ -105,78 +106,80 @@ class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfi
      */
     private fun groupIntoClusters(metadataList: List<MediaMetadata>): List<List<MediaMetadata>> {
         if (metadataList.isEmpty()) return emptyList()
-        
+
         // Check if any photos have GPS data
         val hasGpsData = metadataList.any { it.hasLocation }
-        
+
         val clusters = mutableListOf<MutableList<MediaMetadata>>()
         var currentCluster = mutableListOf<MediaMetadata>()
         var lastLocation: LatLng? = null
         var lastTimestamp: Long? = null
-        
+
         for (metadata in metadataList) {
-            val shouldStartNewCluster = shouldStartNewCluster(
-                metadata = metadata,
-                lastLocation = lastLocation,
-                lastTimestamp = lastTimestamp,
-                hasGpsData = hasGpsData
-            )
-            
+            val shouldStartNewCluster =
+                shouldStartNewCluster(
+                    metadata = metadata,
+                    lastLocation = lastLocation,
+                    lastTimestamp = lastTimestamp,
+                    hasGpsData = hasGpsData,
+                )
+
             if (shouldStartNewCluster) {
                 if (currentCluster.isNotEmpty()) {
                     clusters.add(currentCluster)
                 }
                 currentCluster = mutableListOf()
             }
-            
+
             currentCluster.add(metadata)
             lastLocation = metadata.latLng
             lastTimestamp = metadata.timestamp
         }
-        
+
         if (currentCluster.isNotEmpty()) {
             clusters.add(currentCluster)
         }
-        
+
         return clusters
     }
-    
+
     /**
      * Determine if a new cluster should be started
      */
+    @Suppress("ReturnCount")
     private fun shouldStartNewCluster(
         metadata: MediaMetadata,
         lastLocation: LatLng?,
         lastTimestamp: Long?,
-        hasGpsData: Boolean = true
+        hasGpsData: Boolean = true,
     ): Boolean {
         // First item always starts a cluster
         if (lastLocation == null && lastTimestamp == null) {
             return false
         }
-        
+
         // If no GPS data available, use time-based clustering only
         if (!hasGpsData || metadata.latLng == null) {
             // Force new cluster if no timestamp
             if (metadata.timestamp == null && lastTimestamp == null) {
                 return true
             }
-            
+
             // Use larger time gap for time-only clustering (6 hours = new "location")
             val timeGapHours = 6L
             if (lastTimestamp != null && metadata.timestamp != null) {
-                val timeDiff = (metadata.timestamp!! - lastTimestamp) / (1000 * 60 * 60)
+                val timeDiff = (metadata.timestamp - lastTimestamp) / (1000 * 60 * 60)
                 return timeDiff > timeGapHours
             }
-            
+
             return false
         }
-        
+
         // Force new cluster if no location data
         if (metadata.latLng == null) {
             return true
         }
-        
+
         // Check time gap
         val currentTime = metadata.timestamp
         if (lastTimestamp != null && currentTime != null) {
@@ -185,15 +188,16 @@ class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfi
                 return true
             }
         }
-        
+
         // Check distance
-        if (lastLocation != null) {
-            val distance = metadata.latLng!!.distanceTo(lastLocation)
+        val currentLatLng = metadata.latLng
+        if (lastLocation != null && currentLatLng != null) {
+            val distance = currentLatLng.distanceTo(lastLocation)
             if (distance > config.maxDistanceKm) {
                 return true
             }
         }
-        
+
         return false
     }
 
@@ -206,7 +210,6 @@ class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfi
 
         for ((clusterIndex, cluster) in clusters.withIndex()) {
             val clusterId = "cluster_$clusterIndex"
-            val clusterName = "Stop ${clusterIndex + 1}"
 
             // Add map transition before cluster (except for first cluster)
             if (clusterIndex > 0) {
@@ -223,8 +226,8 @@ class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfi
                             startCoord = startCoord,
                             endCoord = endCoord,
                             clusterId = clusterId,
-                            order = order++
-                        )
+                            order = order++,
+                        ),
                     )
                 }
             }
@@ -236,20 +239,24 @@ class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfi
                     else -> SegmentType.PHOTO
                 }
 
+                val durationMs =
+                    if (segmentType == SegmentType.VIDEO) {
+                        config.videoHighlightDurationMs
+                    } else {
+                        config.photoDurationMs
+                    }
+
                 segments.add(
                     TripSegment(
                         type = segmentType,
                         uri = metadata.uri,
-                        durationMs = if (segmentType == SegmentType.VIDEO)
-                            config.videoHighlightDurationMs
-                        else
-                            config.photoDurationMs,
+                        durationMs = durationMs,
                         startCoord = metadata.latLng,
                         endCoord = metadata.latLng,
                         clusterId = clusterId,
                         timestamp = metadata.timestamp,
-                        order = order++
-                    )
+                        order = order++,
+                    ),
                 )
             }
         }
@@ -261,9 +268,10 @@ class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfi
      * Create Cluster objects from segments for UI display
      */
     fun createClustersFromSegments(segments: List<TripSegment>): List<Cluster> {
-        val clusterMap = segments
-            .filter { it.clusterId != null }
-            .groupBy { it.clusterId!! }
+        val clusterMap =
+            segments
+                .filter { it.clusterId != null }
+                .groupBy { it.clusterId!! }
 
         return clusterMap.map { (clusterId, clusterSegments) ->
             val photos = clusterSegments.filter { it.type == SegmentType.PHOTO || it.type == SegmentType.VIDEO }
@@ -277,7 +285,7 @@ class ClusteringAlgorithm(private val config: ClusteringConfig = ClusteringConfi
                 centerCoord = centerCoord,
                 segments = photos,
                 startTime = startTime,
-                endTime = endTime
+                endTime = endTime,
             )
         }
     }

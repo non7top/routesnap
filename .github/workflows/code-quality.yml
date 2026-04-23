@@ -33,14 +33,16 @@ jobs:
       run: chmod +x gradlew
 
     - name: Run ktlintCheck
-      run: ./gradlew ktlintCheck --no-daemon
+      run: ./gradlew ktlintCheck --no-daemon --continue
 
     - name: Upload ktlint report
       uses: actions/upload-artifact@v7
       if: always()
       with:
         name: ktlint-report-${{ github.run_id }}
-        path: app/build/reports/ktlint/
+        path: |
+          app/build/reports/ktlint/
+          build/reports/ktlint/
         if-no-files-found: ignore
 
   # ============================================================================
@@ -67,7 +69,7 @@ jobs:
       run: chmod +x gradlew
 
     - name: Run detekt
-      run: ./gradlew detekt --no-daemon
+      run: ./gradlew detekt --no-daemon --continue
 
     - name: Upload detekt report (SARIF for GitHub annotations)
       uses: github/codeql-action/upload-sarif@v3
@@ -75,13 +77,16 @@ jobs:
       with:
         sarif_file: app/build/reports/detekt/detekt.sarif
         category: detekt
+        check_name: Detekt
 
     - name: Upload detekt HTML report
       uses: actions/upload-artifact@v7
       if: always()
       with:
         name: detekt-report-${{ github.run_id }}
-        path: app/build/reports/detekt/detekt.html
+        path: |
+          app/build/reports/detekt/
+          build/reports/detekt/
         if-no-files-found: ignore
 
   # ============================================================================

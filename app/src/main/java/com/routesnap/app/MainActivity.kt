@@ -17,8 +17,8 @@ import com.routesnap.app.ui.picker.PhotoPickerScreen
 import com.routesnap.app.ui.render.RenderScreen
 import com.routesnap.app.ui.share.ShareScreen
 import com.routesnap.app.ui.style.StyleScreen
-import com.routesnap.app.ui.timeline.TimelineScreen
 import com.routesnap.app.ui.theme.RouteSnapTheme
+import com.routesnap.app.ui.timeline.TimelineScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -26,16 +26,15 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             RouteSnapTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = MaterialTheme.colorScheme.background,
                 ) {
-                    RouteSnapNavGraph()
+                    RouteSnapNavGraph(modifier = Modifier.fillMaxSize())
                 }
             }
         }
@@ -46,18 +45,21 @@ class MainActivity : ComponentActivity() {
  * Navigation graph for the app
  */
 @Composable
-fun RouteSnapNavGraph() {
+fun RouteSnapNavGraph(
+    modifier: Modifier = Modifier,
+) {
     val navController = rememberNavController()
 
     NavHost(
         navController = navController,
-        startDestination = "picker"
+        startDestination = "picker",
+        modifier = modifier,
     ) {
         composable("picker") {
             PhotoPickerScreen(
                 onNavigateToTimeline = { tripId ->
                     navController.navigate("timeline/$tripId")
-                }
+                },
             )
         }
 
@@ -68,14 +70,14 @@ fun RouteSnapNavGraph() {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
-                }
-            )
+                },
+            ),
         ) { backStackEntry ->
             val tripId = backStackEntry.arguments?.getString("tripId")
             TimelineScreen(
                 tripId = tripId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToStyle = { navController.navigate("style/$tripId") }
+                onNavigateToStyle = { navController.navigate("style/$tripId") },
             )
         }
 
@@ -86,14 +88,13 @@ fun RouteSnapNavGraph() {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
-                }
-            )
+                },
+            ),
         ) { backStackEntry ->
             val tripId = backStackEntry.arguments?.getString("tripId")
             StyleScreen(
-                tripId = tripId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToRender = { navController.navigate("render/$tripId") }
+                onNavigateToRender = { navController.navigate("render/$tripId") },
             )
         }
 
@@ -104,14 +105,14 @@ fun RouteSnapNavGraph() {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
-                }
-            )
+                },
+            ),
         ) { backStackEntry ->
             val tripId = backStackEntry.arguments?.getString("tripId")
             RenderScreen(
                 tripId = tripId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToShare = { navController.navigate("share") }
+                onNavigateToShare = { navController.navigate("share") },
             )
         }
 
@@ -119,7 +120,7 @@ fun RouteSnapNavGraph() {
             ShareScreen(
                 onNavigateHome = {
                     navController.popBackStack("picker", inclusive = false)
-                }
+                },
             )
         }
     }
