@@ -1,6 +1,3 @@
-import java.util.Properties
-import java.io.FileInputStream
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -10,6 +7,9 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint")
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
 // Support version name override from CI (e.g., for PR builds)
 val versionNameOverride: String? by project
 
@@ -18,12 +18,6 @@ val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-    }
 }
 
 android {
@@ -105,6 +99,12 @@ android {
         // See: https://github.com/mrmans0n/compose-rules
         disable += "NullSafeMutableLiveData"
         disable += "RememberInComposition"
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
