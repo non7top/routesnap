@@ -28,7 +28,7 @@ class RenderManager @Inject constructor() {
     /**
      * Start rendering a trip video
      */
-    fun startRendering(trip: TripManifest) {
+    fun startRendering(_trip: TripManifest) {
         _renderState.value = RenderState.Rendering(0, "Initializing...")
 
         // Media3 Transformer pipeline will be implemented in Phase 2
