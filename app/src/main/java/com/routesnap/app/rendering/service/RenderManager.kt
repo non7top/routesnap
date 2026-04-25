@@ -1,10 +1,6 @@
 package com.routesnap.app.rendering.service
 
-import android.content.Context
 import androidx.media3.common.util.UnstableApi
-import com.routesnap.app.data.repository.TripRepository
-import com.routesnap.app.domain.model.TripManifest
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,11 +24,10 @@ class RenderManager @Inject constructor() {
     /**
      * Start rendering a trip video
      */
-    fun startRendering(trip: TripManifest) {
+    fun startRendering() {
         _renderState.value = RenderState.Rendering(0, "Initializing...")
 
         // Media3 Transformer pipeline will be implemented in Phase 2
-        // trip parameter will be used in Phase 2
     }
 
     /**
