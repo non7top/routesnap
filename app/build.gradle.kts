@@ -7,14 +7,17 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint")
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
 // Support version name override from CI (e.g., for PR builds)
 val versionNameOverride: String? by project
 
 // Load keystore properties for signing
 val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = java.util.Properties()
+val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
