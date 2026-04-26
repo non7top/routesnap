@@ -81,10 +81,26 @@ class RenderViewModel @Inject constructor(
      * Start rendering the video
      */
     fun startRendering(tripId: String) {
-        if (renderManager.renderState.value is RenderManager.RenderState.Rendering) {
+        val currentState = renderManager.renderState.value
+        if (currentState is RenderManager.RenderState.Rendering) {
             return
         }
 
+        // If we are in a terminal state, reset first
+        if (currentState is RenderManager.RenderState.Failed ||
+            currentState is RenderManager.RenderState.Completed ||
+            currentState is RenderManager.RenderState.Cancelled) {
+            renderManager.reset()
+        }
+
+        RenderForegroundService.start(context, tripId)
+    }
+
+    /**
+     * Explicit retry function
+     */
+    fun retryRendering(tripId: String) {
+        renderManager.reset()
         RenderForegroundService.start(context, tripId)
     }
 

@@ -45,16 +45,31 @@ class RenderManager @Inject constructor(
      */
     fun startRendering(trip: TripManifest, outputFile: File) {
         if (_renderState.value is RenderState.Rendering) {
+            android.util.Log.w("RenderManager", "Already rendering, ignoring start request")
             return
         }
 
+        android.util.Log.i("RenderManager", "Starting render for trip: ${trip.id} (${trip.name})")
         _renderState.value = RenderState.Rendering(0, "Initializing...")
 
         try {
             val composition = buildComposition(trip)
+
+            if (composition.sequences.isEmpty() || composition.sequences[0].editedMediaItems.isEmpty()) {
+                android.util.Log.e("RenderManager", "Composition is empty for trip: ${trip.id}")
+                throw IllegalStateException("Composition is empty - no valid media items found")
+            }
+
+            android.util.Log.d("RenderManager", "Output file: ${outputFile.absolutePath}")
+            if (outputFile.exists()) {
+                android.util.Log.w("RenderManager", "Output file already exists, deleting: ${outputFile.name}")
+                outputFile.delete()
+            }
+
             val transformerInstance = Transformer.Builder(context)
                 .addListener(object : Transformer.Listener {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                        android.util.Log.i("RenderManager", "Rendering completed successfully: ${outputFile.name}")
                         progressJob?.cancel()
                         _renderState.value = RenderState.Completed(outputFile.absolutePath)
                     }
@@ -64,6 +79,7 @@ class RenderManager @Inject constructor(
                         exportResult: ExportResult,
                         exportException: ExportException,
                     ) {
+                        android.util.Log.e("RenderManager", "Transformer error: ${exportException.message}", exportException)
                         progressJob?.cancel()
                         _renderState.value = RenderState.Failed(
                             exportException.message ?: "Unknown rendering error"
@@ -74,13 +90,23 @@ class RenderManager @Inject constructor(
 
             this.transformer = transformerInstance
             transformerInstance.start(composition, outputFile.absolutePath)
+            android.util.Log.i("RenderManager", "Transformer started successfully")
 
             // Start progress tracking
             startProgressTracking(transformerInstance)
 
         } catch (e: Exception) {
+            android.util.Log.e("RenderManager", "Failed to start rendering: ${e.message}", e)
             _renderState.value = RenderState.Failed(e.message ?: "Failed to start rendering")
         }
+    }
+
+    /**
+     * Reset the render state to Idle (useful for retries)
+     */
+    fun reset() {
+        cancelRendering()
+        _renderState.value = RenderState.Idle
     }
 
     private fun buildComposition(trip: TripManifest): Composition {

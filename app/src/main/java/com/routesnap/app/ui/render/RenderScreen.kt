@@ -173,7 +173,11 @@ fun RenderScreen(
                     // Retry button on error
                     if (uiState.error != null) {
                         Spacer(modifier = Modifier.height(24.dp))
-                        Button(onClick = { /* Retry rendering */ }) {
+                        Button(
+                            onClick = {
+                                tripId?.let { viewModel.retryRendering(it) }
+                            }
+                        ) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Retry")
