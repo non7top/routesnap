@@ -115,24 +115,25 @@ class RenderManager @Inject constructor(
 
             val mediaItem = when (segment.type) {
                 SegmentType.PHOTO -> {
+                    val duration = if (segment.durationMs > 0) segment.durationMs else 3000L
+                    android.util.Log.d("RenderManager", "PHOTO duration: $duration ms")
                     MediaItem.Builder()
                         .setUri(uri)
-                        .setImageDurationMs(segment.durationMs)
+                        .setImageDurationMs(duration)
                         .build()
                 }
                 SegmentType.VIDEO -> {
-                    // For now, take the full video or a highlight
-                    // Trimming will be implemented in later subtasks
                     MediaItem.fromUri(uri)
                 }
                 SegmentType.MAP_TRAVEL -> {
-                    // Map travel will be implemented in #66
-                    // For now, skip or use a placeholder
                     return@mapNotNull null
                 }
             }
 
-            EditedMediaItem.Builder(mediaItem).build()
+            android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
+            EditedMediaItem.Builder(mediaItem)
+                .setFrameRate(30)
+                .build()
         }
 
         val sequence = EditedMediaItemSequence(editedMediaItems)
