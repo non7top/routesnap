@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.util.UnstableApi
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.routesnap.app.ui.theme.RouteSnapTheme
 
@@ -61,7 +62,7 @@ data class RenderUiState(
 /**
  * Render Screen - Show rendering progress
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, UnstableApi::class)
 @Composable
 fun RenderScreen(
     tripId: String?,

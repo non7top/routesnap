@@ -1,6 +1,9 @@
 package com.routesnap.app.ui.picker
 
+import android.content.ContentResolver
+import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.routesnap.app.data.repository.TripRepository
@@ -48,7 +51,8 @@ data class SelectedMediaMetadata(
  */
 @HiltViewModel
 class PickerViewModel @Inject constructor(
-    private val tripRepository: TripRepository
+    private val tripRepository: TripRepository,
+    private val contentResolver: ContentResolver
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PickerUiState())
@@ -58,6 +62,18 @@ class PickerViewModel @Inject constructor(
      * Add selected URIs from Photo Picker
      */
     fun addSelectedUris(uris: List<Uri>) {
+        // Take persistable permissions for background access
+        uris.forEach { uri ->
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: SecurityException) {
+                Log.e("PickerViewModel", "Failed to take persistable permission for $uri", e)
+            }
+        }
+
         val currentUris = _uiState.value.selectedUris
         val updatedUris = currentUris + uris
         _uiState.value = _uiState.value.copy(
