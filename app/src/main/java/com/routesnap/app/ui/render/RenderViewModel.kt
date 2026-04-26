@@ -4,10 +4,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
-import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.rendering.service.RenderForegroundService
 import com.routesnap.app.rendering.service.RenderManager
-import com.routesnap.app.util.StorageHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -25,9 +23,7 @@ import javax.inject.Inject
 @HiltViewModel
 class RenderViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val tripRepository: TripRepository,
     private val renderManager: RenderManager,
-    private val storageHelper: StorageHelper
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RenderUiState())

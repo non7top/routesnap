@@ -1,7 +1,6 @@
 package com.routesnap.app.rendering.service
 
 import android.content.Context
-import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
@@ -11,7 +10,6 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
-import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TripManifest
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -34,7 +32,6 @@ import javax.inject.Singleton
 @Singleton
 class RenderManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val tripRepository: TripRepository,
 ) {
     private val _renderState = MutableStateFlow<RenderState>(RenderState.Idle)
     val renderState: StateFlow<RenderState> = _renderState.asStateFlow()
