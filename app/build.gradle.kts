@@ -144,7 +144,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.8.4")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     // Coil (Image loading)
     implementation("io.coil-kt:coil-compose:2.7.0")
