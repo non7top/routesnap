@@ -2,18 +2,17 @@ package com.routesnap.app.ui.share
 
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -56,9 +55,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.routesnap.app.ui.theme.RouteSnapTheme
 
-/**
- * Share Screen - Share or save the rendered video
- */
 @OptIn(ExperimentalMaterial3Api::class, UnstableApi::class)
 @Composable
 fun ShareScreen(
@@ -85,9 +81,7 @@ fun ShareScreen(
         onDispose { exoPlayer?.release() }
     }
 
-    LaunchedEffect(videoPath) {
-        viewModel.setVideoPath(videoPath)
-    }
+    LaunchedEffect(videoPath) { viewModel.setVideoPath(videoPath) }
 
     LaunchedEffect(uiState.saveSuccess) {
         if (uiState.saveSuccess) {
@@ -116,138 +110,119 @@ fun ShareScreen(
                 )
             }
         ) { paddingValues ->
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
+                    .padding(paddingValues)
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(32.dp)
+                // Compact success header (~5% of screen)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Success icon
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        modifier = Modifier.size(96.dp),
+                        modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.secondary
                     )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Title
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Video Ready!",
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Subtitle
-                    Text(
-                        text = "Your travel recap video has been created successfully",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 32.dp)
+                // Video player fills all remaining space
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
-
-                    Spacer(modifier = Modifier.height(40.dp))
-
-                    // Action buttons
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        // Save to Gallery
-                        Button(
-                            onClick = { viewModel.saveToGallery() },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !uiState.isSaving,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    if (exoPlayer != null) {
+                        AndroidView(
+                            factory = { ctx ->
+                                PlayerView(ctx).apply { player = exoPlayer }
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(16.dp))
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        ) {
-                            Icon(Icons.Default.Save, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (uiState.isSaving) "Saving..." else "Save to Gallery")
-                        }
-
-                        // Share
-                        OutlinedButton(
-                            onClick = { showShareSheet = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Share, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Share")
-                        }
-
-                        // Share to Instagram
-                        OutlinedButton(
-                            onClick = { /* Share to Instagram */ },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.PhotoCamera, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Share to Instagram")
-                        }
-
-                        // Create Another
-                        TextButton(
-                            onClick = onNavigateHome,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Create Another Trip")
+                            Text(
+                                text = "Preview",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
+                }
 
-                    // Video preview
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(9f / 16f),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                // Scrollable action buttons
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = { viewModel.saveToGallery() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !uiState.isSaving,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
                         )
                     ) {
-                        if (exoPlayer != null) {
-                            AndroidView(
-                                factory = { ctx ->
-                                    PlayerView(ctx).apply {
-                                        player = exoPlayer
-                                    }
-                                },
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(16.dp))
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        imageVector = Icons.Default.PlayCircle,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(64.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "Preview",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
+                        Icon(Icons.Default.Save, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (uiState.isSaving) "Saving..." else "Save to Gallery")
+                    }
+
+                    OutlinedButton(
+                        onClick = { showShareSheet = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Share")
+                    }
+
+                    OutlinedButton(
+                        onClick = { /* Share to Instagram */ },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Share to Instagram")
+                    }
+
+                    TextButton(
+                        onClick = onNavigateHome,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Create Another Trip")
                     }
                 }
             }

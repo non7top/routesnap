@@ -113,6 +113,7 @@ class RenderManager @Inject constructor(
     }
 
     private fun buildComposition(trip: TripManifest): Composition {
+        var photoIndex = 0
         val editedMediaItems = trip.segments.mapNotNull { segment ->
             val uri = segment.uri ?: return@mapNotNull null
             android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
@@ -125,10 +126,12 @@ class RenderManager @Inject constructor(
                         .setUri(uri)
                         .setImageDurationMs(duration)
                         .build()
-                    EditedMediaItem.Builder(mediaItem)
+                    val item = EditedMediaItem.Builder(mediaItem)
                         .setFrameRate(30)
-                        .setEffects(Effects(emptyList(), listOf(kenBurnsZoom(duration), portraitPresentation())))
+                        .setEffects(Effects(emptyList(), listOf(kenBurnsZoom(duration, photoIndex), portraitPresentation())))
                         .build()
+                    photoIndex++
+                    item
                 }
                 SegmentType.VIDEO -> {
                     EditedMediaItem.Builder(MediaItem.fromUri(uri))
@@ -147,16 +150,32 @@ class RenderManager @Inject constructor(
     private fun portraitPresentation(): Presentation =
         Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
 
-    private fun kenBurnsZoom(durationMs: Long): MatrixTransformation {
+    private fun kenBurnsZoom(durationMs: Long, index: Int): MatrixTransformation {
         val durationUs = durationMs * 1000L
         var startUs = -1L
+        val pan = PAN_DIRECTIONS[index % PAN_DIRECTIONS.size]
         return MatrixTransformation { presentationTimeUs ->
             if (startUs < 0L) startUs = presentationTimeUs
             val elapsed = presentationTimeUs - startUs
             val progress = (elapsed.toFloat() / durationUs.toFloat()).coerceIn(0f, 1f)
             val scale = 1.0f + (0.2f * progress)
-            android.graphics.Matrix().apply { setScale(scale, scale) }
+            val tx = pan[0] + (pan[2] - pan[0]) * progress
+            val ty = pan[1] + (pan[3] - pan[1]) * progress
+            android.graphics.Matrix().apply {
+                setScale(scale, scale)
+                postTranslate(tx, ty)
+            }
         }
+    }
+
+    companion object {
+        // [startX, startY, endX, endY] — fractional pixel offsets cycling 4 diagonal directions
+        private val PAN_DIRECTIONS = arrayOf(
+            floatArrayOf(-40f, -40f,  40f,  40f),  // TL→BR
+            floatArrayOf( 40f, -40f, -40f,  40f),  // TR→BL
+            floatArrayOf(-40f,  40f,  40f, -40f),  // BL→TR
+            floatArrayOf( 40f,  40f, -40f, -40f),  // BR→TL
+        )
     }
 
     private fun startProgressTracking(transformer: Transformer) {
