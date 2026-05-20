@@ -144,8 +144,11 @@ class RenderManager @Inject constructor(
 
     private fun kenBurnsZoom(durationMs: Long): MatrixTransformation {
         val durationUs = durationMs * 1000L
+        var startUs = -1L
         return MatrixTransformation { presentationTimeUs ->
-            val progress = (presentationTimeUs.toFloat() / durationUs.toFloat()).coerceIn(0f, 1f)
+            if (startUs < 0L) startUs = presentationTimeUs
+            val elapsed = presentationTimeUs - startUs
+            val progress = (elapsed.toFloat() / durationUs.toFloat()).coerceIn(0f, 1f)
             val scale = 1.0f + (0.2f * progress)
             android.graphics.Matrix().apply { setScale(scale, scale) }
         }
