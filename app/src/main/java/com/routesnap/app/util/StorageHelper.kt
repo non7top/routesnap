@@ -1,9 +1,12 @@
 package com.routesnap.app.util
 
+import android.content.ContentValues
 import android.content.Context
 import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import java.io.File
+import java.io.FileInputStream
 
 /**
  * Helper class for managing file storage
@@ -38,7 +41,45 @@ class StorageHelper(private val context: Context) {
             .replace(Regex("[^a-zA-Z0-9._-]"), "_")
             .take(100) // Limit filename length
 
-        return File(outputDir, "$safeFileName.mp4")
+        return File(outputDir, "${safeFileName}_${System.currentTimeMillis()}.mp4")
+    }
+
+    /**
+     * Save a video file to the public Gallery/Movies collection using MediaStore
+     */
+    fun saveVideoToGallery(videoFile: File, displayName: String): Boolean {
+        return try {
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/RouteSnap")
+                put(MediaStore.Video.Media.IS_PENDING, 1)
+            }
+
+            val resolver = context.contentResolver
+            val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            val uri = resolver.insert(collection, contentValues)
+
+            if (uri != null) {
+                resolver.openOutputStream(uri).use { outputStream ->
+                    FileInputStream(videoFile).use { inputStream ->
+                        inputStream.copyTo(outputStream!!)
+                    }
+                }
+
+                contentValues.clear()
+                contentValues.put(MediaStore.Video.Media.IS_PENDING, 0)
+                resolver.update(uri, contentValues, null, null)
+                Log.d(TAG, "Successfully saved video to gallery: $uri")
+                true
+            } else {
+                Log.e(TAG, "Failed to create MediaStore entry")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving video to gallery", e)
+            false
+        }
     }
 
     /**

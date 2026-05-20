@@ -67,7 +67,7 @@ data class RenderUiState(
 fun RenderScreen(
     tripId: String?,
     onNavigateBack: () -> Unit,
-    onNavigateToShare: () -> Unit,
+    onNavigateToShare: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RenderViewModel = hiltViewModel(),
 ) {
@@ -80,9 +80,9 @@ fun RenderScreen(
     // Auto-navigate when complete
     val currentOnNavigateToShare by rememberUpdatedState(onNavigateToShare)
     LaunchedEffect(uiState.isComplete) {
-        if (uiState.isComplete) {
+        if (uiState.isComplete && uiState.outputPath != null) {
             kotlinx.coroutines.delay(1500)
-            currentOnNavigateToShare()
+            currentOnNavigateToShare(uiState.outputPath)
         }
     }
 

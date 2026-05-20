@@ -112,12 +112,27 @@ fun RouteSnapNavGraph(
             RenderScreen(
                 tripId = tripId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToShare = { navController.navigate("share") },
+                onNavigateToShare = { outputPath ->
+                    // Encode path to handle slashes and special characters
+                    val encodedPath = java.net.URLEncoder.encode(outputPath, "UTF-8")
+                    navController.navigate("share?videoPath=$encodedPath")
+                },
             )
         }
 
-        composable("share") {
+        composable(
+            route = "share?videoPath={videoPath}",
+            arguments = listOf(
+                navArgument("videoPath") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val videoPath = backStackEntry.arguments?.getString("videoPath")
             ShareScreen(
+                videoPath = videoPath,
                 onNavigateHome = {
                     navController.popBackStack("picker", inclusive = false)
                 },
