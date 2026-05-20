@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.routesnap.app.util.StorageHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
@@ -45,10 +47,12 @@ class ShareViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isSaving = true, error = null)
 
         viewModelScope.launch {
-            val success = storageHelper.saveVideoToGallery(
-                videoFile,
-                "RouteSnap_${videoFile.nameWithoutExtension}"
-            )
+            val success = withContext(Dispatchers.IO) {
+                storageHelper.saveVideoToGallery(
+                    videoFile,
+                    "RouteSnap_${videoFile.nameWithoutExtension}"
+                )
+            }
 
             if (success) {
                 _uiState.value = _uiState.value.copy(
