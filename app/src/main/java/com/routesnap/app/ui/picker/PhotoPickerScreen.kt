@@ -1,9 +1,12 @@
 package com.routesnap.app.ui.picker
 
+import android.Manifest
 import android.net.Uri
+import android.os.Build
 import kotlinx.coroutines.launch
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -81,6 +84,17 @@ fun PhotoPickerScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
+
+    // ACCESS_MEDIA_LOCATION is a dangerous permission on API 29+ — must be requested at runtime
+    // so ExifInterface can read GPS tags from content URIs without redaction.
+    val mediaLocationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* GPS reading works once granted; denied = indicators stay red */ }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            mediaLocationPermission.launch(Manifest.permission.ACCESS_MEDIA_LOCATION)
+        }
+    }
 
     // Standard picker — fast but strips GPS EXIF
     val pickMedia = rememberLauncherForActivityResult(
