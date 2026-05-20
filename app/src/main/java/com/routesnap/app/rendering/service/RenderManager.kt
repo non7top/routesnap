@@ -164,9 +164,9 @@ class RenderManager @Inject constructor(
         return MatrixTransformation { presentationTimeUs ->
             if (startUs < 0L) startUs = presentationTimeUs
             val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-            // Scale 1.1→1.3: at minimum scale 1.1 we have 0.1 extra per side,
+            // Scale 1.15→1.5: at minimum scale 1.15 we have 0.15 extra per side,
             // which always exceeds the ±0.06 translation — no black edges possible.
-            val scale = 1.1f + 0.2f * progress
+            val scale = 1.15f + 0.35f * progress
             val tx = pan[0] + (pan[2] - pan[0]) * progress
             val ty = pan[1] + (pan[3] - pan[1]) * progress
             android.graphics.Matrix().apply {
