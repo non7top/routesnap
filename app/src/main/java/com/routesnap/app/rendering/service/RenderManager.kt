@@ -57,7 +57,7 @@ class RenderManager @Inject constructor(
 
             if (composition.sequences.isEmpty() || composition.sequences[0].editedMediaItems.isEmpty()) {
                 android.util.Log.e("RenderManager", "Composition is empty for trip: ${trip.id}")
-                throw IllegalStateException("Composition is empty - no valid media items found")
+                error("Composition is empty - no valid media items found")
             }
 
             android.util.Log.d("RenderManager", "Output file: ${outputFile.absolutePath}")
