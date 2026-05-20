@@ -123,7 +123,7 @@ data class TripManifest(
     val segments: List<TripSegment> = emptyList(),
     val clusters: List<Cluster> = emptyList(),
     val totalDurationMs: Long = 0,
-    val aspectRatio: AspectRatio = AspectRatio.SQUARE,
+    val aspectRatio: AspectRatio = AspectRatio.PORTRAIT,
     val template: TemplatePreset = TemplatePreset.BALANCED,
     val musicUri: Uri? = null,
     val status: RenderStatus = RenderStatus.DRAFT,
