@@ -16,7 +16,6 @@ jobs:
   ktlint:
     name: Ktlint
     runs-on: ubuntu-latest
-    if: false
     timeout-minutes: 10
 
     steps:
