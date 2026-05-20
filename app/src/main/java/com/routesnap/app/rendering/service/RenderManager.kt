@@ -129,7 +129,10 @@ class RenderManager @Inject constructor(
                         .setImageDurationMs(duration)
                         .build()
                     val videoEffects = if (cinematic) {
-                        listOf(kenBurnsZoom(duration, photoIndex), portraitPresentation())
+                        // Presentation first: letterbox into portrait frame.
+                        // Ken Burns second: zooms the portrait frame, growing landscape
+                        // image outward into the black bar space (pinch-zoom behaviour).
+                        listOf(portraitPresentation(), kenBurnsZoom(duration, photoIndex))
                     } else {
                         listOf(portraitPresentation())
                     }
@@ -155,7 +158,7 @@ class RenderManager @Inject constructor(
     }
 
     private fun portraitPresentation(): Presentation =
-        Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP)
+        Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
 
     private fun kenBurnsZoom(durationMs: Long, index: Int): MatrixTransformation {
         val durationUs = durationMs * 1000L
