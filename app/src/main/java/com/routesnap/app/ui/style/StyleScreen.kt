@@ -49,7 +49,7 @@ import com.routesnap.app.ui.theme.RouteSnapTheme
  * UI State for the style screen
  */
 data class StyleUiState(
-    val selectedAspectRatio: AspectRatio = AspectRatio.SQUARE,
+    val selectedAspectRatio: AspectRatio = AspectRatio.PORTRAIT,
     val selectedTemplate: TemplatePreset = TemplatePreset.BALANCED,
     val musicSelected: Boolean = false,
     val musicTitle: String? = null,
@@ -89,7 +89,7 @@ fun StyleScreen(
             },
             floatingActionButton = {
                 FloatingActionButton(
-                    onClick = onNavigateToRender,
+                    onClick = { viewModel.saveAndRender(onNavigateToRender) },
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = "Render")

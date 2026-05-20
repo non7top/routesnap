@@ -8,7 +8,9 @@ import com.routesnap.app.data.exif.MetadataExtractor
 import com.routesnap.app.data.local.TripManifestDao
 import com.routesnap.app.data.local.TripManifestEntity
 import com.routesnap.app.domain.clustering.ClusteringAlgorithm
+import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.RenderStatus
+import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
 import com.squareup.moshi.FromJson
@@ -76,6 +78,11 @@ class TripRepository(
                 )
             tripManifestDao.insertTrip(entity)
         }
+    }
+
+    suspend fun updateTripStyle(tripId: String, template: TemplatePreset, aspectRatio: AspectRatio) {
+        val trip = getTripById(tripId) ?: return
+        saveTrip(trip.copy(template = template, aspectRatio = aspectRatio))
     }
 
     /**

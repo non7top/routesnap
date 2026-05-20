@@ -3,14 +3,18 @@ package com.routesnap.app.rendering.service
 import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.MatrixTransformation
+import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
+import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import com.routesnap.app.domain.model.SegmentType
+import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TripManifest
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -110,34 +114,69 @@ class RenderManager @Inject constructor(
     }
 
     private fun buildComposition(trip: TripManifest): Composition {
+        val cinematic = trip.template == TemplatePreset.CINEMATIC
+        var photoIndex = 0
         val editedMediaItems = trip.segments.mapNotNull { segment ->
             val uri = segment.uri ?: return@mapNotNull null
+            android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
 
-            val mediaItem = when (segment.type) {
+            when (segment.type) {
                 SegmentType.PHOTO -> {
-                    val duration = if (segment.durationMs > 0) segment.durationMs else 3000L
-                    android.util.Log.d("RenderManager", "PHOTO duration: $duration ms")
-                    MediaItem.Builder()
+                    val duration = if (segment.durationMs > 0) segment.durationMs else 5000L
+                    android.util.Log.d("RenderManager", "PHOTO duration: $duration ms cinematic: $cinematic")
+                    val mediaItem = MediaItem.Builder()
                         .setUri(uri)
                         .setImageDurationMs(duration)
                         .build()
+                    val videoEffects = if (cinematic) {
+                        // Presentation first: letterbox into portrait frame.
+                        // Ken Burns second: zooms the portrait frame, growing landscape
+                        // image outward into the black bar space (pinch-zoom behaviour).
+                        listOf(portraitPresentation(), kenBurnsZoom(duration, photoIndex))
+                    } else {
+                        listOf(portraitPresentation())
+                    }
+                    val item = EditedMediaItem.Builder(mediaItem)
+                        .setFrameRate(30)
+                        .setEffects(Effects(emptyList(), videoEffects))
+                        .build()
+                    photoIndex++
+                    item
                 }
                 SegmentType.VIDEO -> {
-                    MediaItem.fromUri(uri)
+                    EditedMediaItem.Builder(MediaItem.fromUri(uri))
+                        .setFrameRate(30)
+                        .setEffects(Effects(emptyList(), listOf(portraitPresentation())))
+                        .build()
                 }
-                SegmentType.MAP_TRAVEL -> {
-                    return@mapNotNull null
-                }
+                SegmentType.MAP_TRAVEL -> { null }
             }
-
-            android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
-            EditedMediaItem.Builder(mediaItem)
-                .setFrameRate(30)
-                .build()
         }
 
         val sequence = EditedMediaItemSequence(editedMediaItems)
         return Composition.Builder(listOf(sequence)).build()
+    }
+
+    private fun portraitPresentation(): Presentation =
+        Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
+
+    private fun kenBurnsZoom(durationMs: Long, index: Int): MatrixTransformation {
+        val durationUs = durationMs * 1000L
+        var startUs = -1L
+        val pan = PAN_DIRECTIONS[index % PAN_DIRECTIONS.size]
+        return MatrixTransformation { presentationTimeUs ->
+            if (startUs < 0L) startUs = presentationTimeUs
+            val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
+            // Scale 1.15→1.5: at minimum scale 1.15 we have 0.15 extra per side,
+            // which always exceeds the ±0.06 translation — no black edges possible.
+            val scale = 1.15f + 0.35f * progress
+            val tx = pan[0] + (pan[2] - pan[0]) * progress
+            val ty = pan[1] + (pan[3] - pan[1]) * progress
+            android.graphics.Matrix().apply {
+                setScale(scale, scale)
+                postTranslate(tx, ty)
+            }
+        }
     }
 
     private fun startProgressTracking(transformer: Transformer) {
@@ -175,6 +214,17 @@ class RenderManager @Inject constructor(
         progressJob?.cancel()
         transformer = null
         _renderState.value = RenderState.Cancelled
+    }
+
+    companion object {
+        // [startX, startY, endX, endY] in NDC units [-1,1]. Values ±0.06 stay within
+        // the 0.1 extra margin that the minimum scale of 1.1 provides on each side.
+        private val PAN_DIRECTIONS = arrayOf(
+            floatArrayOf(-0.06f, -0.06f,  0.06f,  0.06f),  // TL→BR
+            floatArrayOf( 0.06f, -0.06f, -0.06f,  0.06f),  // TR→BL
+            floatArrayOf(-0.06f,  0.06f,  0.06f, -0.06f),  // BL→TR
+            floatArrayOf( 0.06f,  0.06f, -0.06f, -0.06f),  // BR→TL
+        )
     }
 
     /**
