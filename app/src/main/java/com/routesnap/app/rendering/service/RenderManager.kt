@@ -168,16 +168,6 @@ class RenderManager @Inject constructor(
         }
     }
 
-    companion object {
-        // [startX, startY, endX, endY] — fractional pixel offsets cycling 4 diagonal directions
-        private val PAN_DIRECTIONS = arrayOf(
-            floatArrayOf(-40f, -40f,  40f,  40f),  // TL→BR
-            floatArrayOf( 40f, -40f, -40f,  40f),  // TR→BL
-            floatArrayOf(-40f,  40f,  40f, -40f),  // BL→TR
-            floatArrayOf( 40f,  40f, -40f, -40f),  // BR→TL
-        )
-    }
-
     private fun startProgressTracking(transformer: Transformer) {
         progressJob?.cancel()
         progressJob = scope.launch {
@@ -213,6 +203,16 @@ class RenderManager @Inject constructor(
         progressJob?.cancel()
         transformer = null
         _renderState.value = RenderState.Cancelled
+    }
+
+    companion object {
+        // [startX, startY, endX, endY] — pixel offsets cycling 4 diagonal directions
+        private val PAN_DIRECTIONS = arrayOf(
+            floatArrayOf(-40f, -40f,  40f,  40f),  // TL→BR
+            floatArrayOf( 40f, -40f, -40f,  40f),  // TR→BL
+            floatArrayOf(-40f,  40f,  40f, -40f),  // BL→TR
+            floatArrayOf( 40f,  40f, -40f, -40f),  // BR→TL
+        )
     }
 
     /**
