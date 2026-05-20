@@ -1,9 +1,18 @@
 package com.routesnap.app.rendering.service
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.MatrixTransformation
+import androidx.media3.effect.OverlayEffect
+import androidx.media3.effect.OverlaySettings
 import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
@@ -13,9 +22,11 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
+import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TripManifest
+import java.io.File
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -149,7 +160,32 @@ class RenderManager @Inject constructor(
                         .setEffects(Effects(emptyList(), listOf(portraitPresentation())))
                         .build()
                 }
-                SegmentType.MAP_TRAVEL -> { null }
+                SegmentType.MAP_TRAVEL -> {
+                    val portrait = trip.aspectRatio != AspectRatio.LANDSCAPE
+                    val destIndex = segment.clusterId
+                        ?.substringAfter("cluster_")?.toIntOrNull() ?: 1
+                    val fromName = trip.clusters.getOrNull(destIndex - 1)?.name ?: "Start"
+                    val toName = trip.clusters.getOrNull(destIndex)?.name ?: "End"
+                    val durationMs = if (segment.durationMs > 0) segment.durationMs else 2000L
+
+                    val bitmap = buildTransitionBitmap(fromName, toName, portrait)
+                    val tempFile = File(context.cacheDir, "transition_$destIndex.jpg").also {
+                        it.outputStream().use { s -> bitmap.compress(Bitmap.CompressFormat.JPEG, 95, s) }
+                        bitmap.recycle()
+                    }
+                    val mediaItem = MediaItem.Builder()
+                        .setUri(Uri.fromFile(tempFile))
+                        .setImageDurationMs(durationMs)
+                        .build()
+                    val durationUs = durationMs * 1000L
+                    EditedMediaItem.Builder(mediaItem)
+                        .setFrameRate(30)
+                        .setEffects(Effects(emptyList(), listOf(
+                            portraitPresentation(),
+                            OverlayEffect(listOf(FadeInOutOverlay(durationUs))),
+                        )))
+                        .build()
+                }
             }
         }
 
@@ -177,6 +213,35 @@ class RenderManager @Inject constructor(
                 postTranslate(tx, ty)
             }
         }
+    }
+
+    private fun buildTransitionBitmap(fromName: String, toName: String, portrait: Boolean): Bitmap {
+        val width = if (portrait) 1080 else 1920
+        val height = if (portrait) 1920 else 1080
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.argb(230, 15, 15, 15))
+
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textAlign = Paint.Align.CENTER
+            textSize = if (portrait) 96f else 72f
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val arrowPaint = Paint(textPaint).apply {
+            textSize = if (portrait) 80f else 60f
+            alpha = 180
+        }
+        val cx = width / 2f
+        val cy = height / 2f
+        if (portrait) {
+            canvas.drawText(fromName, cx, cy - 140f, textPaint)
+            canvas.drawText("↓", cx, cy + textPaint.textSize / 2, arrowPaint)
+            canvas.drawText(toName, cx, cy + 200f, textPaint)
+        } else {
+            canvas.drawText("$fromName  →  $toName", cx, cy + textPaint.textSize / 3, textPaint)
+        }
+        return bitmap
     }
 
     private fun startProgressTracking(transformer: Transformer) {
@@ -225,6 +290,30 @@ class RenderManager @Inject constructor(
             floatArrayOf(-0.06f,  0.06f,  0.06f, -0.06f),  // BL→TR
             floatArrayOf( 0.06f,  0.06f, -0.06f, -0.06f),  // BR→TL
         )
+    }
+
+    private class FadeInOutOverlay(private val durationUs: Long) : BitmapOverlay() {
+        private val blackBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(Color.BLACK)
+        }
+        private var startUs = -1L
+
+        override fun getBitmap(presentationTimeUs: Long): Bitmap = blackBitmap
+
+        override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
+            if (startUs < 0L) startUs = presentationTimeUs
+            val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
+            val alpha = when {
+                progress < FADE_RATIO -> 1f - (progress / FADE_RATIO)
+                progress > 1f - FADE_RATIO -> (progress - (1f - FADE_RATIO)) / FADE_RATIO
+                else -> 0f
+            }
+            return OverlaySettings.Builder().setAlphaScale(alpha).build()
+        }
+
+        companion object {
+            private const val FADE_RATIO = 0.3f
+        }
     }
 
     /**
