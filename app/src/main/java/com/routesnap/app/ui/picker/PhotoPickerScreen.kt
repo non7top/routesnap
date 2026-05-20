@@ -1,9 +1,12 @@
 package com.routesnap.app.ui.picker
 
+import android.Manifest
 import android.net.Uri
+import android.os.Build
 import kotlinx.coroutines.launch
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +32,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Photo
@@ -40,6 +44,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,12 +85,40 @@ fun PhotoPickerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
 
-    // Photo Picker launcher
+    // ACCESS_MEDIA_LOCATION is a dangerous permission on API 29+ — must be requested at runtime
+    // so ExifInterface can read GPS tags from content URIs without redaction.
+    val mediaLocationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* GPS reading works once granted; denied = indicators stay red */ }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            mediaLocationPermission.launch(Manifest.permission.ACCESS_MEDIA_LOCATION)
+        }
+    }
+
+    // Standard picker — fast but strips GPS EXIF
     val pickMedia = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
         if (uris.isNotEmpty()) {
             viewModel.addSelectedUris(uris)
+        }
+    }
+
+    // Document picker — slower UI but preserves GPS EXIF and supports persistable URIs
+    val openDocuments = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            viewModel.addSelectedUris(uris)
+        }
+    }
+
+    val launchPicker = {
+        if (uiState.pickerMode == PickerMode.GPS_PRESERVING) {
+            openDocuments.launch(arrayOf("image/*", "video/*"))
+        } else {
+            pickMedia.launch("image/*")
         }
     }
 
@@ -136,6 +170,31 @@ fun PhotoPickerScreen(
                     )
                 )
 
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // GPS mode toggle
+                FilterChip(
+                    selected = uiState.pickerMode == PickerMode.GPS_PRESERVING,
+                    onClick = { viewModel.togglePickerMode() },
+                    label = {
+                        Text(
+                            if (uiState.pickerMode == PickerMode.GPS_PRESERVING) "GPS Preserved" else "GPS Stripped"
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
+                    )
+                )
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Stats card
@@ -152,12 +211,12 @@ fun PhotoPickerScreen(
                 // Photo grid or empty state
                 if (uiState.selectedUris.isEmpty()) {
                     EmptyState(
-                        onPickPhotos = { pickMedia.launch("image/*") }
+                        onPickPhotos = launchPicker
                     )
                 } else {
                     // Add more photos button
                     Button(
-                        onClick = { pickMedia.launch("image/*") },
+                        onClick = launchPicker,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -363,26 +422,24 @@ private fun PhotoGridItem(
             contentScale = ContentScale.Crop
         )
 
-        // GPS indicator overlay (bottom-left)
-        if (hasGps) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(4.dp)
-                    .background(
-                        clusterColor,
-                        RoundedCornerShape(4.dp)
-                    )
-                    .size(20.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = "Has GPS",
-                    tint = Color.White,
-                    modifier = Modifier.size(14.dp)
+        // GPS indicator overlay (bottom-left): green = GPS present, red = no GPS
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(4.dp)
+                .background(
+                    if (hasGps) clusterColor else Color(0xFFB00020),
+                    RoundedCornerShape(4.dp)
                 )
-            }
+                .size(20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (hasGps) Icons.Default.LocationOn else Icons.Default.LocationOff,
+                contentDescription = if (hasGps) "Has GPS" else "No GPS",
+                tint = Color.White,
+                modifier = Modifier.size(14.dp)
+            )
         }
 
         // Remove button overlay (top-right)

@@ -41,7 +41,7 @@ jobs:
       run: chmod +x gradlew
 
     - name: Run lint
-      run: ./gradlew lint --no-daemon
+      run: ./gradlew lint --no-daemon --build-cache
 
     - name: Upload lint reports
       uses: actions/upload-artifact@v7
@@ -75,7 +75,7 @@ jobs:
       run: chmod +x gradlew
 
     - name: Check dependencies
-      run: ./gradlew dependencies --no-daemon
+      run: ./gradlew dependencies --no-daemon --build-cache
 
   # ============================================================================
   # Unit Tests (no APK needed - JVM tests only)
@@ -105,7 +105,7 @@ jobs:
       run: chmod +x gradlew
 
     - name: Run unit tests
-      run: ./gradlew test --no-daemon
+      run: ./gradlew test --no-daemon --build-cache
 
     - name: Upload test reports
       uses: actions/upload-artifact@v7

@@ -65,8 +65,15 @@ class MetadataExtractor(
     suspend fun extractMetadata(uri: Uri): MediaMetadata =
         withContext(Dispatchers.IO) {
             try {
-                contentResolver.openInputStream(uri)?.use { inputStream ->
-                    val exif = ExifInterface(inputStream)
+                // Prefer file descriptor: ExifInterface can seek within it, so it reliably reads
+                // GPS sub-IFDs. Stream-only mode silently misses GPS on document-provider URIs.
+                val exif = contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                    ExifInterface(pfd.fileDescriptor)
+                } ?: contentResolver.openInputStream(uri)?.use { stream ->
+                    ExifInterface(stream)
+                }
+
+                if (exif != null) {
                     MediaMetadata(
                         uri = uri,
                         latitude = extractGpsCoordinates(exif).first,
@@ -75,14 +82,15 @@ class MetadataExtractor(
                         width = extractDimensions(exif).first,
                         height = extractDimensions(exif).second,
                     )
-                }
-                    ?: MediaMetadata(
+                } else {
+                    MediaMetadata(
                         uri = uri,
                         latitude = null,
                         longitude = null,
                         timestamp = null,
-                        error = MetadataError.IoError("Could not open input stream for $uri"),
+                        error = MetadataError.IoError("Could not open $uri"),
                     )
+                }
             } catch (e: IOException) {
                 Log.e(TAG, "IO error extracting EXIF for $uri", e)
                 MediaMetadata(

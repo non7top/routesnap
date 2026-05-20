@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class PickerMode { STANDARD, GPS_PRESERVING }
+
 /**
  * UI State for the photo picker screen
  */
@@ -31,6 +33,7 @@ data class PickerUiState(
     val estimatedDurationSeconds: Int = 0,
     val photosWithGps: Int = 0,
     val totalPhotos: Int = 0,
+    val pickerMode: PickerMode = PickerMode.GPS_PRESERVING,
 ) {
     val gpsPercentage: Float get() = if (totalPhotos > 0) photosWithGps.toFloat() / totalPhotos else 0f
 
@@ -98,6 +101,16 @@ class PickerViewModel @Inject constructor(
      */
     fun clearSelection() {
         _uiState.value = PickerUiState()
+    }
+
+    fun togglePickerMode() {
+        _uiState.value = _uiState.value.copy(
+            pickerMode = if (_uiState.value.pickerMode == PickerMode.GPS_PRESERVING) {
+                PickerMode.STANDARD
+            } else {
+                PickerMode.GPS_PRESERVING
+            }
+        )
     }
 
     /**

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
@@ -63,12 +64,15 @@ data class TimelineUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val tripId: String? = null,
+    val segmentLocations: Map<String, String> = emptyMap(), // segment.id → "City, Country"
 )
 
 data class TimelineCluster(
     val id: String,
     val name: String,
     val segmentIndices: List<Int>,
+    val locationName: String? = null,
+    val dateLabel: String? = null,
 )
 
 /**
@@ -156,6 +160,7 @@ private fun TimelineContent(
                 TimelineItem(
                     segment = segment,
                     index = index,
+                    locationName = uiState.segmentLocations[segment.id],
                     onRemove = { onRemoveSegment(segment) }
                 )
             }
@@ -163,7 +168,7 @@ private fun TimelineContent(
             // Show clustered segments
             clusters.forEach { cluster ->
                 item {
-                    ClusterHeader(clusterName = cluster.name, segmentCount = cluster.segmentIndices.size)
+                    ClusterHeader(cluster = cluster)
                 }
 
                 items(
@@ -171,10 +176,12 @@ private fun TimelineContent(
                     key = { cluster.segmentIndices[it] }
                 ) { index ->
                     val segmentIndex = cluster.segmentIndices[index]
+                    val segment = segments[segmentIndex]
                     TimelineItem(
-                        segment = segments[segmentIndex],
+                        segment = segment,
                         index = segmentIndex,
-                        onRemove = { onRemoveSegment(segments[segmentIndex]) }
+                        locationName = uiState.segmentLocations[segment.id],
+                        onRemove = { onRemoveSegment(segment) }
                     )
                 }
             }
@@ -188,7 +195,7 @@ private fun TimelineContent(
 }
 
 @Composable
-private fun ClusterHeader(clusterName: String, segmentCount: Int) {
+private fun ClusterHeader(cluster: TimelineCluster) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -204,13 +211,17 @@ private fun ClusterHeader(clusterName: String, segmentCount: Int) {
         Spacer(modifier = Modifier.width(8.dp))
         Column {
             Text(
-                text = clusterName,
+                text = cluster.locationName ?: cluster.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
+            val subtitle = listOfNotNull(
+                cluster.dateLabel,
+                "${cluster.segmentIndices.size} photos",
+            ).joinToString(" · ")
             Text(
-                text = "$segmentCount photos",
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -222,6 +233,7 @@ private fun ClusterHeader(clusterName: String, segmentCount: Int) {
 private fun TimelineItem(
     segment: TripSegment,
     index: Int,
+    locationName: String?,
     onRemove: () -> Unit,
 ) {
     Card(
@@ -321,6 +333,28 @@ private fun TimelineItem(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (segment.type != SegmentType.MAP_TRAVEL) {
+                    val hasGps = segment.startCoord != null
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (hasGps) Icons.Default.LocationOn else Icons.Default.LocationOff,
+                            contentDescription = null,
+                            tint = if (hasGps) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            text = locationName ?: if (hasGps) "…" else "No GPS",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (hasGps) MaterialTheme.colorScheme.onSurfaceVariant
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
+                }
             }
 
             // Remove button
