@@ -71,6 +71,8 @@ data class TimelineCluster(
     val id: String,
     val name: String,
     val segmentIndices: List<Int>,
+    val locationName: String? = null,
+    val dateLabel: String? = null,
 )
 
 /**
@@ -166,7 +168,7 @@ private fun TimelineContent(
             // Show clustered segments
             clusters.forEach { cluster ->
                 item {
-                    ClusterHeader(clusterName = cluster.name, segmentCount = cluster.segmentIndices.size)
+                    ClusterHeader(cluster = cluster)
                 }
 
                 items(
@@ -193,7 +195,7 @@ private fun TimelineContent(
 }
 
 @Composable
-private fun ClusterHeader(clusterName: String, segmentCount: Int) {
+private fun ClusterHeader(cluster: TimelineCluster) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -209,13 +211,17 @@ private fun ClusterHeader(clusterName: String, segmentCount: Int) {
         Spacer(modifier = Modifier.width(8.dp))
         Column {
             Text(
-                text = clusterName,
+                text = cluster.locationName ?: cluster.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
+            val subtitle = listOfNotNull(
+                cluster.dateLabel,
+                "${cluster.segmentIndices.size} photos",
+            ).joinToString(" · ")
             Text(
-                text = "$segmentCount photos",
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

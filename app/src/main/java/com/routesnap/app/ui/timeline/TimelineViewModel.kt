@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 
@@ -40,14 +42,19 @@ class TimelineViewModel @Inject constructor(
             try {
                 val trip = tripRepository.getTripById(tripId)
                 if (trip != null) {
+                    val dateFmt = SimpleDateFormat("MMM d", Locale.getDefault())
                     val clusters = trip.clusters.map { cluster ->
                         val segmentIndices = trip.segments.mapIndexedNotNull { index, segment ->
                             if (segment.clusterId == cluster.id) index else null
                         }
+                        val firstTimestamp = segmentIndices.firstNotNullOfOrNull {
+                            trip.segments.getOrNull(it)?.timestamp
+                        }
                         TimelineCluster(
                             id = cluster.id,
                             name = cluster.name,
-                            segmentIndices = segmentIndices
+                            segmentIndices = segmentIndices,
+                            dateLabel = firstTimestamp?.let { dateFmt.format(Date(it)) },
                         )
                     }
 
@@ -102,7 +109,16 @@ class TimelineViewModel @Inject constructor(
                     if (name.isNotEmpty()) locations[segment.id] = name
                 }
 
-            _uiState.value = _uiState.value.copy(segmentLocations = locations)
+            val updatedClusters = _uiState.value.clusters.map { cluster ->
+                val firstLocation = cluster.segmentIndices.firstNotNullOfOrNull { idx ->
+                    _uiState.value.segments.getOrNull(idx)?.id?.let { locations[it] }
+                }
+                cluster.copy(locationName = firstLocation)
+            }
+            _uiState.value = _uiState.value.copy(
+                segmentLocations = locations,
+                clusters = updatedClusters,
+            )
         }
     }
 
