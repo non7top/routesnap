@@ -26,7 +26,6 @@ import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TripManifest
-import java.io.File
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

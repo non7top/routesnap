@@ -102,6 +102,7 @@ class TimelineViewModel @Inject constructor(
                                 val country = address?.countryName
                                 listOfNotNull(city, country).joinToString(", ")
                             } catch (e: Exception) {
+                                android.util.Log.w("TimelineViewModel", "Geocoding failed for $cacheKey", e)
                                 ""
                             }
                         }
