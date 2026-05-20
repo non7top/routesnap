@@ -80,9 +80,10 @@ fun RenderScreen(
     // Auto-navigate when complete
     val currentOnNavigateToShare by rememberUpdatedState(onNavigateToShare)
     LaunchedEffect(uiState.isComplete) {
-        if (uiState.isComplete && uiState.outputPath != null) {
+        val outputPath = uiState.outputPath
+        if (uiState.isComplete && outputPath != null) {
             kotlinx.coroutines.delay(1500)
-            currentOnNavigateToShare(uiState.outputPath)
+            currentOnNavigateToShare(outputPath)
         }
     }
 
