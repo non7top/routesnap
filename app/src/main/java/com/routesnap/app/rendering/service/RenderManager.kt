@@ -1,7 +1,6 @@
 package com.routesnap.app.rendering.service
 
 import android.content.Context
-import android.opengl.Matrix
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.MatrixTransformation
@@ -148,10 +147,7 @@ class RenderManager @Inject constructor(
         return MatrixTransformation { presentationTimeUs ->
             val progress = (presentationTimeUs.toFloat() / durationUs.toFloat()).coerceIn(0f, 1f)
             val scale = 1.0f + (0.2f * progress)
-            FloatArray(16).also {
-                Matrix.setIdentityM(it, 0)
-                Matrix.scaleM(it, 0, scale, scale, 1f)
-            }
+            android.graphics.Matrix().apply { setScale(scale, scale) }
         }
     }
 
