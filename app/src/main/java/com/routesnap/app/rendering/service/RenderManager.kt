@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.MatrixTransformation
+import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
@@ -126,12 +127,13 @@ class RenderManager @Inject constructor(
                         .build()
                     EditedMediaItem.Builder(mediaItem)
                         .setFrameRate(30)
-                        .setEffects(Effects(emptyList(), listOf(kenBurnsZoom(duration))))
+                        .setEffects(Effects(emptyList(), listOf(kenBurnsZoom(duration), portraitPresentation())))
                         .build()
                 }
                 SegmentType.VIDEO -> {
                     EditedMediaItem.Builder(MediaItem.fromUri(uri))
                         .setFrameRate(30)
+                        .setEffects(Effects(emptyList(), listOf(portraitPresentation())))
                         .build()
                 }
                 SegmentType.MAP_TRAVEL -> { null }
@@ -141,6 +143,9 @@ class RenderManager @Inject constructor(
         val sequence = EditedMediaItemSequence(editedMediaItems)
         return Composition.Builder(listOf(sequence)).build()
     }
+
+    private fun portraitPresentation(): Presentation =
+        Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
 
     private fun kenBurnsZoom(durationMs: Long): MatrixTransformation {
         val durationUs = durationMs * 1000L
