@@ -155,7 +155,7 @@ class RenderManager @Inject constructor(
     }
 
     private fun portraitPresentation(): Presentation =
-        Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
+        Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP)
 
     private fun kenBurnsZoom(durationMs: Long, index: Int): MatrixTransformation {
         val durationUs = durationMs * 1000L
