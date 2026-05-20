@@ -46,9 +46,9 @@ jobs:
     - name: Build APK
       run: |
         if [ "${{ inputs.build-type }}" = "release" ]; then
-          ./gradlew assembleRelease -PversionNameOverride="${{ inputs.version-name }}" --no-daemon
+          ./gradlew assembleRelease -PversionNameOverride="${{ inputs.version-name }}" --no-daemon --build-cache
         else
-          ./gradlew assembleDebug -PversionNameOverride="${{ inputs.version-name }}" --no-daemon
+          ./gradlew assembleDebug -PversionNameOverride="${{ inputs.version-name }}" --no-daemon --build-cache
         fi
       timeout-minutes: 10
 
