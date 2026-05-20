@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Photo
@@ -407,26 +408,24 @@ private fun PhotoGridItem(
             contentScale = ContentScale.Crop
         )
 
-        // GPS indicator overlay (bottom-left)
-        if (hasGps) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(4.dp)
-                    .background(
-                        clusterColor,
-                        RoundedCornerShape(4.dp)
-                    )
-                    .size(20.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = "Has GPS",
-                    tint = Color.White,
-                    modifier = Modifier.size(14.dp)
+        // GPS indicator overlay (bottom-left): green = GPS present, red = no GPS
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(4.dp)
+                .background(
+                    if (hasGps) clusterColor else Color(0xFFB00020),
+                    RoundedCornerShape(4.dp)
                 )
-            }
+                .size(20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (hasGps) Icons.Default.LocationOn else Icons.Default.LocationOff,
+                contentDescription = if (hasGps) "Has GPS" else "No GPS",
+                tint = Color.White,
+                modifier = Modifier.size(14.dp)
+            )
         }
 
         // Remove button overlay (top-right)
