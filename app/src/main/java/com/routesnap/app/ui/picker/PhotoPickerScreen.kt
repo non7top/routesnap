@@ -40,6 +40,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,12 +81,29 @@ fun PhotoPickerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
 
-    // Photo Picker launcher
+    // Standard picker — fast but strips GPS EXIF
     val pickMedia = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
         if (uris.isNotEmpty()) {
             viewModel.addSelectedUris(uris)
+        }
+    }
+
+    // Document picker — slower UI but preserves GPS EXIF and supports persistable URIs
+    val openDocuments = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            viewModel.addSelectedUris(uris)
+        }
+    }
+
+    val launchPicker = {
+        if (uiState.pickerMode == PickerMode.GPS_PRESERVING) {
+            openDocuments.launch(arrayOf("image/*", "video/*"))
+        } else {
+            pickMedia.launch("image/*")
         }
     }
 
@@ -136,6 +155,31 @@ fun PhotoPickerScreen(
                     )
                 )
 
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // GPS mode toggle
+                FilterChip(
+                    selected = uiState.pickerMode == PickerMode.GPS_PRESERVING,
+                    onClick = { viewModel.togglePickerMode() },
+                    label = {
+                        Text(
+                            if (uiState.pickerMode == PickerMode.GPS_PRESERVING) "GPS Preserved" else "GPS Stripped"
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
+                    )
+                )
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Stats card
@@ -152,12 +196,12 @@ fun PhotoPickerScreen(
                 // Photo grid or empty state
                 if (uiState.selectedUris.isEmpty()) {
                     EmptyState(
-                        onPickPhotos = { pickMedia.launch("image/*") }
+                        onPickPhotos = launchPicker
                     )
                 } else {
                     // Add more photos button
                     Button(
-                        onClick = { pickMedia.launch("image/*") },
+                        onClick = launchPicker,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
