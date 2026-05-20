@@ -49,36 +49,33 @@ class StorageHelper(private val context: Context) {
      */
     fun saveVideoToGallery(videoFile: File, displayName: String): Boolean {
         return try {
+            val resolver = context.contentResolver
             val contentValues = ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
                 put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                 put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/RouteSnap")
                 put(MediaStore.Video.Media.IS_PENDING, 1)
             }
-
-            val resolver = context.contentResolver
-            val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-            val uri = resolver.insert(collection, contentValues)
-
-            if (uri != null) {
-                resolver.openOutputStream(uri).use { outputStream ->
-                    FileInputStream(videoFile).use { inputStream ->
-                        inputStream.copyTo(outputStream!!)
-                    }
+            val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)
+                ?: run {
+                    Log.e(TAG, "Failed to create MediaStore entry")
+                    return false
                 }
-
-                contentValues.clear()
-                contentValues.put(MediaStore.Video.Media.IS_PENDING, 0)
-                resolver.update(uri, contentValues, null, null)
-                Log.d(TAG, "Successfully saved video to gallery: $uri")
-                true
-            } else {
-                Log.e(TAG, "Failed to create MediaStore entry")
-                false
-            }
+            copyFileToUri(videoFile, uri)
+            contentValues.clear()
+            contentValues.put(MediaStore.Video.Media.IS_PENDING, 0)
+            resolver.update(uri, contentValues, null, null)
+            Log.d(TAG, "Successfully saved video to gallery: $uri")
+            true
         } catch (e: Exception) {
             Log.e(TAG, "Error saving video to gallery", e)
             false
+        }
+    }
+
+    private fun copyFileToUri(src: File, uri: android.net.Uri) {
+        context.contentResolver.openOutputStream(uri).use { out ->
+            FileInputStream(src).use { it.copyTo(out!!) }
         }
     }
 
