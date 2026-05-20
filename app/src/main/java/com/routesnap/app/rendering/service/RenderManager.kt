@@ -1,11 +1,14 @@
 package com.routesnap.app.rendering.service
 
 import android.content.Context
+import android.opengl.Matrix
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.MatrixTransformation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
+import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
@@ -112,32 +115,44 @@ class RenderManager @Inject constructor(
     private fun buildComposition(trip: TripManifest): Composition {
         val editedMediaItems = trip.segments.mapNotNull { segment ->
             val uri = segment.uri ?: return@mapNotNull null
+            android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
 
-            val mediaItem = when (segment.type) {
+            when (segment.type) {
                 SegmentType.PHOTO -> {
-                    val duration = if (segment.durationMs > 0) segment.durationMs else 3000L
+                    val duration = if (segment.durationMs > 0) segment.durationMs else 5000L
                     android.util.Log.d("RenderManager", "PHOTO duration: $duration ms")
-                    MediaItem.Builder()
+                    val mediaItem = MediaItem.Builder()
                         .setUri(uri)
                         .setImageDurationMs(duration)
                         .build()
+                    EditedMediaItem.Builder(mediaItem)
+                        .setFrameRate(30)
+                        .setEffects(Effects(emptyList(), listOf(kenBurnsZoom(duration))))
+                        .build()
                 }
                 SegmentType.VIDEO -> {
-                    MediaItem.fromUri(uri)
+                    EditedMediaItem.Builder(MediaItem.fromUri(uri))
+                        .setFrameRate(30)
+                        .build()
                 }
-                SegmentType.MAP_TRAVEL -> {
-                    return@mapNotNull null
-                }
+                SegmentType.MAP_TRAVEL -> null
             }
-
-            android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
-            EditedMediaItem.Builder(mediaItem)
-                .setFrameRate(30)
-                .build()
         }
 
         val sequence = EditedMediaItemSequence(editedMediaItems)
         return Composition.Builder(listOf(sequence)).build()
+    }
+
+    private fun kenBurnsZoom(durationMs: Long): MatrixTransformation {
+        val durationUs = durationMs * 1000L
+        return MatrixTransformation { presentationTimeUs ->
+            val progress = (presentationTimeUs.toFloat() / durationUs.toFloat()).coerceIn(0f, 1f)
+            val scale = 1.0f + (0.2f * progress)
+            FloatArray(16).also {
+                Matrix.setIdentityM(it, 0)
+                Matrix.scaleM(it, 0, scale, scale, 1f)
+            }
+        }
     }
 
     private fun startProgressTracking(transformer: Transformer) {
