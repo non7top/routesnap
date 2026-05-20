@@ -162,7 +162,8 @@ class RenderManager @Inject constructor(
                 SegmentType.MAP_TRAVEL -> {
                     val portrait = trip.aspectRatio != AspectRatio.LANDSCAPE
                     val destIndex = segment.clusterId
-                        ?.substringAfter("cluster_")?.toIntOrNull() ?: 1
+                        ?.substringAfter("cluster_")
+                        ?.toIntOrNull() ?: 1
                     val fromName = trip.clusters.getOrNull(destIndex - 1)?.name ?: "Start"
                     val toName = trip.clusters.getOrNull(destIndex)?.name ?: "End"
                     val durationMs = if (segment.durationMs > 0) segment.durationMs else 2000L
