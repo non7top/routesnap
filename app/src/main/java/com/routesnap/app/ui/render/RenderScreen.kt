@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.util.UnstableApi
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.routesnap.app.ui.theme.RouteSnapTheme
 
@@ -61,12 +62,12 @@ data class RenderUiState(
 /**
  * Render Screen - Show rendering progress
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, UnstableApi::class)
 @Composable
 fun RenderScreen(
     tripId: String?,
     onNavigateBack: () -> Unit,
-    onNavigateToShare: () -> Unit,
+    onNavigateToShare: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RenderViewModel = hiltViewModel(),
 ) {
@@ -79,9 +80,10 @@ fun RenderScreen(
     // Auto-navigate when complete
     val currentOnNavigateToShare by rememberUpdatedState(onNavigateToShare)
     LaunchedEffect(uiState.isComplete) {
-        if (uiState.isComplete) {
+        val outputPath = uiState.outputPath
+        if (uiState.isComplete && outputPath != null) {
             kotlinx.coroutines.delay(1500)
-            currentOnNavigateToShare()
+            currentOnNavigateToShare(outputPath)
         }
     }
 
@@ -172,7 +174,11 @@ fun RenderScreen(
                     // Retry button on error
                     if (uiState.error != null) {
                         Spacer(modifier = Modifier.height(24.dp))
-                        Button(onClick = { /* Retry rendering */ }) {
+                        Button(
+                            onClick = {
+                                tripId?.let { viewModel.retryRendering(it) }
+                            }
+                        ) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Retry")
