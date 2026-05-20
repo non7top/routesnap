@@ -89,7 +89,7 @@ fun StyleScreen(
             },
             floatingActionButton = {
                 FloatingActionButton(
-                    onClick = onNavigateToRender,
+                    onClick = { viewModel.saveAndRender(onNavigateToRender) },
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = "Render")
