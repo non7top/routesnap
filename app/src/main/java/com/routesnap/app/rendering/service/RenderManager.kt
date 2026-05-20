@@ -134,7 +134,7 @@ class RenderManager @Inject constructor(
                         .setFrameRate(30)
                         .build()
                 }
-                SegmentType.MAP_TRAVEL -> null
+                SegmentType.MAP_TRAVEL -> { null }
             }
         }
 
