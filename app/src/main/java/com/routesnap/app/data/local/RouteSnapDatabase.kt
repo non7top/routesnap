@@ -23,12 +23,12 @@ abstract class RouteSnapDatabase : RoomDatabase() {
         fun getDatabase(context: Context): RouteSnapDatabase =
             instance ?: synchronized(this) {
                 val dbInstance =
-                    Room.databaseBuilder(
-                        context.applicationContext,
-                        RouteSnapDatabase::class.java,
-                        "routesnap_database",
-                    )
-                        .fallbackToDestructiveMigration()
+                    Room
+                        .databaseBuilder(
+                            context.applicationContext,
+                            RouteSnapDatabase::class.java,
+                            "routesnap_database",
+                        ).fallbackToDestructiveMigration()
                         .build()
                 instance = dbInstance
                 dbInstance

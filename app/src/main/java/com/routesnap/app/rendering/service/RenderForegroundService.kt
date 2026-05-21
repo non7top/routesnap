@@ -15,13 +15,13 @@ import com.routesnap.app.MainActivity
 import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.util.StorageHelper
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * Foreground service for video rendering
@@ -84,30 +84,34 @@ class RenderForegroundService : Service() {
         startForeground(NOTIFICATION_ID, createNotification(0, "Preparing trip..."))
 
         stateObservationJob?.cancel()
-        stateObservationJob = renderManager.renderState
-            .onEach { state ->
-                when (state) {
-                    is RenderManager.RenderState.Rendering -> {
-                        updateProgress(state.progress, state.status)
+        stateObservationJob =
+            renderManager.renderState
+                .onEach { state ->
+                    when (state) {
+                        is RenderManager.RenderState.Rendering -> {
+                            updateProgress(state.progress, state.status)
+                        }
+
+                        is RenderManager.RenderState.Completed -> {
+                            // Notify completion if needed, then stop
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                        }
+
+                        is RenderManager.RenderState.Failed -> {
+                            // Notify failure if needed, then stop
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                        }
+
+                        is RenderManager.RenderState.Cancelled -> {
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                        }
+
+                        else -> {}
                     }
-                    is RenderManager.RenderState.Completed -> {
-                        // Notify completion if needed, then stop
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        stopSelf()
-                    }
-                    is RenderManager.RenderState.Failed -> {
-                        // Notify failure if needed, then stop
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        stopSelf()
-                    }
-                    is RenderManager.RenderState.Cancelled -> {
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        stopSelf()
-                    }
-                    else -> {}
-                }
-            }
-            .launchIn(serviceScope)
+                }.launchIn(serviceScope)
 
         serviceScope.launch {
             val trip = tripRepository.getTripById(tripId)
@@ -120,9 +124,7 @@ class RenderForegroundService : Service() {
         }
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
-    }
+    override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
         super.onDestroy()
@@ -150,24 +152,28 @@ class RenderForegroundService : Service() {
         progress: Int,
         status: String,
     ): Notification {
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
+        val pendingIntent =
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE,
+            )
 
-        val cancelIntent = Intent(this, RenderForegroundService::class.java).apply {
-            action = ACTION_CANCEL
-        }
-        val cancelPendingIntent = PendingIntent.getService(
-            this,
-            0,
-            cancelIntent,
-            PendingIntent.FLAG_IMMUTABLE,
-        )
+        val cancelIntent =
+            Intent(this, RenderForegroundService::class.java).apply {
+                action = ACTION_CANCEL
+            }
+        val cancelPendingIntent =
+            PendingIntent.getService(
+                this,
+                0,
+                cancelIntent,
+                PendingIntent.FLAG_IMMUTABLE,
+            )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat
+            .Builder(this, CHANNEL_ID)
             .setContentTitle("Rendering Video")
             .setContentText(status)
             .setSmallIcon(android.R.drawable.ic_menu_gallery)
@@ -177,20 +183,21 @@ class RenderForegroundService : Service() {
                 100,
                 progress,
                 progress == 0,
-            )
-            .addAction(
+            ).addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 "Cancel",
                 cancelPendingIntent,
-            )
-            .build()
+            ).build()
     }
 
     /**
      * Update the notification progress
      */
     @Suppress("NotificationPermission")
-    fun updateProgress(progress: Int, status: String) {
+    fun updateProgress(
+        progress: Int,
+        status: String,
+    ) {
         val notification = createNotification(progress, status)
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.notify(NOTIFICATION_ID, notification)
@@ -206,11 +213,15 @@ class RenderForegroundService : Service() {
         /**
          * Helper to start the service
          */
-        fun start(context: Context, tripId: String) {
-            val intent = Intent(context, RenderForegroundService::class.java).apply {
-                action = ACTION_START_RENDER
-                putExtra(EXTRA_TRIP_ID, tripId)
-            }
+        fun start(
+            context: Context,
+            tripId: String,
+        ) {
+            val intent =
+                Intent(context, RenderForegroundService::class.java).apply {
+                    action = ACTION_START_RENDER
+                    putExtra(EXTRA_TRIP_ID, tripId)
+                }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {

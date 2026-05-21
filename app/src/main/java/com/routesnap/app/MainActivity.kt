@@ -65,13 +65,14 @@ fun RouteSnapNavGraph(
 
         composable(
             route = "timeline/{tripId}",
-            arguments = listOf(
-                navArgument("tripId") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                },
-            ),
+            arguments =
+                listOf(
+                    navArgument("tripId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
         ) { backStackEntry ->
             val tripId = backStackEntry.arguments?.getString("tripId")
             TimelineScreen(
@@ -83,13 +84,14 @@ fun RouteSnapNavGraph(
 
         composable(
             route = "style/{tripId}",
-            arguments = listOf(
-                navArgument("tripId") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                },
-            ),
+            arguments =
+                listOf(
+                    navArgument("tripId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
         ) { backStackEntry ->
             val tripId = backStackEntry.arguments?.getString("tripId")
             StyleScreen(
@@ -100,13 +102,14 @@ fun RouteSnapNavGraph(
 
         composable(
             route = "render/{tripId}",
-            arguments = listOf(
-                navArgument("tripId") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                },
-            ),
+            arguments =
+                listOf(
+                    navArgument("tripId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
         ) { backStackEntry ->
             val tripId = backStackEntry.arguments?.getString("tripId")
             RenderScreen(
@@ -122,13 +125,14 @@ fun RouteSnapNavGraph(
 
         composable(
             route = "share?videoPath={videoPath}",
-            arguments = listOf(
-                navArgument("videoPath") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                }
-            )
+            arguments =
+                listOf(
+                    navArgument("videoPath") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
         ) { backStackEntry ->
             val videoPath = backStackEntry.arguments?.getString("videoPath")
             ShareScreen(

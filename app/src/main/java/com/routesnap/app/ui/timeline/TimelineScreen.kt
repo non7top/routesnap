@@ -107,33 +107,36 @@ fun TimelineScreen(
                     actions = {
                         IconButton(
                             onClick = onNavigateToStyle,
-                            enabled = uiState.segments.isNotEmpty()
+                            enabled = uiState.segments.isNotEmpty(),
                         ) {
                             Icon(Icons.Default.Check, contentDescription = "Done")
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                            navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                            actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
                 )
-            }
+            },
         ) { paddingValues ->
             if (uiState.segments.isEmpty()) {
                 EmptyTimelineState(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
                 )
             } else {
                 TimelineContent(
                     uiState = uiState,
                     onRemoveSegment = { viewModel.removeSegment(it) },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
                 )
             }
         }
@@ -148,7 +151,7 @@ private fun TimelineContent(
 ) {
     LazyColumn(
         modifier = modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Group by clusters
         val clusters = uiState.clusters
@@ -161,7 +164,7 @@ private fun TimelineContent(
                     segment = segment,
                     index = index,
                     locationName = uiState.segmentLocations[segment.id],
-                    onRemove = { onRemoveSegment(segment) }
+                    onRemove = { onRemoveSegment(segment) },
                 )
             }
         } else {
@@ -173,7 +176,7 @@ private fun TimelineContent(
 
                 items(
                     count = cluster.segmentIndices.size,
-                    key = { cluster.segmentIndices[it] }
+                    key = { cluster.segmentIndices[it] },
                 ) { index ->
                     val segmentIndex = cluster.segmentIndices[index]
                     val segment = segments[segmentIndex]
@@ -181,7 +184,7 @@ private fun TimelineContent(
                         segment = segment,
                         index = segmentIndex,
                         locationName = uiState.segmentLocations[segment.id],
-                        onRemove = { onRemoveSegment(segment) }
+                        onRemove = { onRemoveSegment(segment) },
                     )
                 }
             }
@@ -197,16 +200,17 @@ private fun TimelineContent(
 @Composable
 private fun ClusterHeader(cluster: TimelineCluster) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = Icons.Default.LocationOn,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.width(8.dp))
         Column {
@@ -214,16 +218,17 @@ private fun ClusterHeader(cluster: TimelineCluster) {
                 text = cluster.locationName ?: cluster.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
             )
-            val subtitle = listOfNotNull(
-                cluster.dateLabel,
-                "${cluster.segmentIndices.size} photos",
-            ).joinToString(" · ")
+            val subtitle =
+                listOfNotNull(
+                    cluster.dateLabel,
+                    "${cluster.segmentIndices.size} photos",
+                ).joinToString(" · ")
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -238,30 +243,33 @@ private fun TimelineItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // Order number
             Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primary,
-                        RoundedCornerShape(50)
-                    ),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .size(32.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primary,
+                            RoundedCornerShape(50),
+                        ),
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = "${index + 1}",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = MaterialTheme.colorScheme.onPrimary,
                 )
             }
 
@@ -274,42 +282,47 @@ private fun TimelineItem(
                         AsyncImage(
                             model = uri,
                             contentDescription = null,
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(8.dp)),
-                            contentScale = ContentScale.Crop
+                            modifier =
+                                Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop,
                         )
                     }
                 }
+
                 SegmentType.VIDEO -> {
                     Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Videocam,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(28.dp),
                         )
                     }
                 }
+
                 SegmentType.MAP_TRAVEL -> {
                     Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.tertiaryContainer),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.tertiaryContainer),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Route,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(28.dp),
                         )
                     }
                 }
@@ -320,38 +333,47 @@ private fun TimelineItem(
             // Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = when (segment.type) {
-                        SegmentType.PHOTO -> "Photo"
-                        SegmentType.VIDEO -> "Video"
-                        SegmentType.MAP_TRAVEL -> "Map Transition"
-                    },
+                    text =
+                        when (segment.type) {
+                            SegmentType.PHOTO -> "Photo"
+                            SegmentType.VIDEO -> "Video"
+                            SegmentType.MAP_TRAVEL -> "Map Transition"
+                        },
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
                 )
                 Text(
                     text = "${segment.durationMs / 1000}s",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (segment.type != SegmentType.MAP_TRAVEL) {
                     val hasGps = segment.startCoord != null
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 2.dp)
+                        modifier = Modifier.padding(top = 2.dp),
                     ) {
                         Icon(
                             imageVector = if (hasGps) Icons.Default.LocationOn else Icons.Default.LocationOff,
                             contentDescription = null,
-                            tint = if (hasGps) MaterialTheme.colorScheme.primary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(12.dp)
+                            tint =
+                                if (hasGps) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                },
+                            modifier = Modifier.size(12.dp),
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
                             text = locationName ?: if (hasGps) "…" else "No GPS",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (hasGps) MaterialTheme.colorScheme.onSurfaceVariant
-                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            color =
+                                if (hasGps) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                },
                         )
                     }
                 }
@@ -362,7 +384,7 @@ private fun TimelineItem(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Remove",
-                    tint = MaterialTheme.colorScheme.error
+                    tint = MaterialTheme.colorScheme.error,
                 )
             }
         }
@@ -373,22 +395,22 @@ private fun TimelineItem(
 private fun EmptyTimelineState(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier,
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(
                 imageVector = Icons.Default.Timeline,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "No segments to display",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

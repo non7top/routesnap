@@ -46,9 +46,10 @@ data class LatLng(
  * Represents a single segment in the trip video timeline
  */
 data class TripSegment(
-    val id: String = java.util.UUID
-        .randomUUID()
-        .toString(),
+    val id: String =
+        java.util.UUID
+            .randomUUID()
+            .toString(),
     val type: SegmentType,
     val uri: Uri?,
     val durationMs: Long,
@@ -63,9 +64,10 @@ data class TripSegment(
  * Represents a cluster of photos taken at similar location/time
  */
 data class Cluster(
-    val id: String = java.util.UUID
-        .randomUUID()
-        .toString(),
+    val id: String =
+        java.util.UUID
+            .randomUUID()
+            .toString(),
     val name: String,
     val centerCoord: LatLng?,
     val segments: List<TripSegment>,
@@ -115,9 +117,10 @@ enum class RenderStatus {
  */
 @Suppress("LongParameterList")
 data class TripManifest(
-    val id: String = java.util.UUID
-        .randomUUID()
-        .toString(),
+    val id: String =
+        java.util.UUID
+            .randomUUID()
+            .toString(),
     val name: String,
     val createdAt: Long = System.currentTimeMillis(),
     val segments: List<TripSegment> = emptyList(),

@@ -67,11 +67,12 @@ class MetadataExtractor(
             try {
                 // Prefer file descriptor: ExifInterface can seek within it, so it reliably reads
                 // GPS sub-IFDs. Stream-only mode silently misses GPS on document-provider URIs.
-                val exif = contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                    ExifInterface(pfd.fileDescriptor)
-                } ?: contentResolver.openInputStream(uri)?.use { stream ->
-                    ExifInterface(stream)
-                }
+                val exif =
+                    contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                        ExifInterface(pfd.fileDescriptor)
+                    } ?: contentResolver.openInputStream(uri)?.use { stream ->
+                        ExifInterface(stream)
+                    }
 
                 if (exif != null) {
                     MediaMetadata(
@@ -116,10 +117,11 @@ class MetadataExtractor(
                     latitude = null,
                     longitude = null,
                     timestamp = null,
-                    error = MetadataError.UnknownError(
-                        message = "Unexpected error: ${e.message ?: "Unknown error"}",
-                        exception = e,
-                    ),
+                    error =
+                        MetadataError.UnknownError(
+                            message = "Unexpected error: ${e.message ?: "Unknown error"}",
+                            exception = e,
+                        ),
                 )
             }
         }

@@ -3,10 +3,8 @@ package com.routesnap.app.ui.picker
 import android.Manifest
 import android.net.Uri
 import android.os.Build
-import kotlinx.coroutines.launch
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -58,6 +56,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -71,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.routesnap.app.ui.theme.RouteSnapTheme
+import kotlinx.coroutines.launch
 
 /**
  * Photo Picker Screen - Main entry point for selecting media
@@ -87,9 +87,10 @@ fun PhotoPickerScreen(
 
     // ACCESS_MEDIA_LOCATION is a dangerous permission on API 29+ — must be requested at runtime
     // so ExifInterface can read GPS tags from content URIs without redaction.
-    val mediaLocationPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { /* GPS reading works once granted; denied = indicators stay red */ }
+    val mediaLocationPermission =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { /* GPS reading works once granted; denied = indicators stay red */ }
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             mediaLocationPermission.launch(Manifest.permission.ACCESS_MEDIA_LOCATION)
@@ -97,22 +98,24 @@ fun PhotoPickerScreen(
     }
 
     // Standard picker — fast but strips GPS EXIF
-    val pickMedia = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents()
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            viewModel.addSelectedUris(uris)
+    val pickMedia =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetMultipleContents(),
+        ) { uris ->
+            if (uris.isNotEmpty()) {
+                viewModel.addSelectedUris(uris)
+            }
         }
-    }
 
     // Document picker — slower UI but preserves GPS EXIF and supports persistable URIs
-    val openDocuments = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            viewModel.addSelectedUris(uris)
+    val openDocuments =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenMultipleDocuments(),
+        ) { uris ->
+            if (uris.isNotEmpty()) {
+                viewModel.addSelectedUris(uris)
+            }
         }
-    }
 
     val launchPicker = {
         if (uiState.pickerMode == PickerMode.GPS_PRESERVING) {
@@ -128,10 +131,11 @@ fun PhotoPickerScreen(
             topBar = {
                 TopAppBar(
                     title = { Text("Create New Trip") },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
                 )
             },
             floatingActionButton = {
@@ -145,18 +149,19 @@ fun PhotoPickerScreen(
                                 }
                             }
                         },
-                        containerColor = MaterialTheme.colorScheme.secondary
+                        containerColor = MaterialTheme.colorScheme.secondary,
                     ) {
                         Icon(Icons.Default.Check, contentDescription = "Done")
                     }
                 }
-            }
+            },
         ) { paddingValues ->
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp)
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(16.dp),
             ) {
                 // Trip name input
                 OutlinedTextField(
@@ -165,9 +170,10 @@ fun PhotoPickerScreen(
                     label = { Text("Trip Name") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary
-                    )
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -178,21 +184,22 @@ fun PhotoPickerScreen(
                     onClick = { viewModel.togglePickerMode() },
                     label = {
                         Text(
-                            if (uiState.pickerMode == PickerMode.GPS_PRESERVING) "GPS Preserved" else "GPS Stripped"
+                            if (uiState.pickerMode == PickerMode.GPS_PRESERVING) "GPS Preserved" else "GPS Stripped",
                         )
                     },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = null,
-                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                            modifier = Modifier.size(FilterChipDefaults.IconSize),
                         )
                     },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
-                    )
+                    colors =
+                        FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
+                        ),
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -203,7 +210,7 @@ fun PhotoPickerScreen(
                         photoCount = uiState.selectedUris.size,
                         clusterCount = uiState.clusterCount,
                         estimatedDuration = uiState.estimatedDurationSeconds,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -211,16 +218,17 @@ fun PhotoPickerScreen(
                 // Photo grid or empty state
                 if (uiState.selectedUris.isEmpty()) {
                     EmptyState(
-                        onPickPhotos = launchPicker
+                        onPickPhotos = launchPicker,
                     )
                 } else {
                     // Add more photos button
                     Button(
                         onClick = launchPicker,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        )
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
@@ -234,55 +242,56 @@ fun PhotoPickerScreen(
                         columns = GridCells.Fixed(3),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
                     ) {
                         items(
                             count = uiState.metadata.size,
-                            key = { uiState.metadata[it].uri }
+                            key = { uiState.metadata[it].uri },
                         ) { index ->
                             val item = uiState.metadata[index]
                             PhotoGridItem(
                                 uri = item.uri,
                                 hasGps = item.hasLocation,
                                 clusterId = item.clusterId,
-                                onRemove = { viewModel.removeUri(item.uri) }
+                                onRemove = { viewModel.removeUri(item.uri) },
                             )
                         }
                     }
 
-                // Processing indicator
-                if (uiState.isProcessing) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        text = "Processing photos...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                // Error message
-                uiState.error?.let { errorMessage ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
+                    // Processing indicator
+                    if (uiState.isProcessing) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
                         )
-                    ) {
                         Text(
-                            text = errorMessage,
+                            text = "Processing photos...",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.padding(12.dp)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+
+                    // Error message
+                    uiState.error?.let { errorMessage ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            colors =
+                                CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                ),
+                        ) {
+                            Text(
+                                text = errorMessage,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(12.dp),
+                            )
+                        }
                     }
                 }
             }
         }
     }
-}
 }
 
 @Composable
@@ -294,30 +303,32 @@ private fun StatsCard(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             StatItem(
                 icon = Icons.Default.Photo,
                 value = photoCount.toString(),
-                label = "Photos"
+                label = "Photos",
             )
             StatItem(
                 icon = Icons.Default.LocationOn,
                 value = clusterCount.toString(),
-                label = "Stops"
+                label = "Stops",
             )
             StatItem(
                 icon = Icons.Default.Timer,
                 value = "${estimatedDuration}s",
-                label = "Duration"
+                label = "Duration",
             )
         }
     }
@@ -330,22 +341,22 @@ private fun StatItem(
     label: String,
 ) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary
+            tint = MaterialTheme.colorScheme.primary,
         )
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -353,34 +364,35 @@ private fun StatItem(
 @Composable
 private fun EmptyState(onPickPhotos: () -> Unit) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                MaterialTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(16.dp)
-            ),
-        contentAlignment = Alignment.Center
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    MaterialTheme.colorScheme.surfaceVariant,
+                    RoundedCornerShape(16.dp),
+                ),
+        contentAlignment = Alignment.Center,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(32.dp)
+            modifier = Modifier.padding(32.dp),
         ) {
             Icon(
                 imageVector = Icons.Default.PhotoLibrary,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.primary,
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "No photos selected yet",
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Tap the button below to add photos and videos",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(24.dp))
             Button(onClick = onPickPhotos) {
@@ -400,64 +412,67 @@ private fun PhotoGridItem(
     onRemove: () -> Unit,
 ) {
     // Generate consistent color from cluster ID
-    val clusterColor = clusterId?.let { id ->
-        val hash = id.hashCode()
-        Color(
-            red = ((hash and 0xFF0000) shr 16) / 255f * 0.7f + 0.3f,
-            green = ((hash and 0x00FF00) shr 8) / 255f * 0.7f + 0.3f,
-            blue = (hash and 0x0000FF) / 255f * 0.7f + 0.3f,
-            alpha = 1f
-        )
-    } ?: Color.Gray
+    val clusterColor =
+        clusterId?.let { id ->
+            val hash = id.hashCode()
+            Color(
+                red = ((hash and 0xFF0000) shr 16) / 255f * 0.7f + 0.3f,
+                green = ((hash and 0x00FF00) shr 8) / 255f * 0.7f + 0.3f,
+                blue = (hash and 0x0000FF) / 255f * 0.7f + 0.3f,
+                alpha = 1f,
+            )
+        } ?: Color.Gray
 
     Box(
-        modifier = Modifier
-            .aspectRatio(1f)
-            .clip(RoundedCornerShape(8.dp))
+        modifier =
+            Modifier
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(8.dp)),
     ) {
         AsyncImage(
             model = uri,
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
+            contentScale = ContentScale.Crop,
         )
 
         // GPS indicator overlay (bottom-left): green = GPS present, red = no GPS
         Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(4.dp)
-                .background(
-                    if (hasGps) clusterColor else Color(0xFFB00020),
-                    RoundedCornerShape(4.dp)
-                )
-                .size(20.dp),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(4.dp)
+                    .background(
+                        if (hasGps) clusterColor else Color(0xFFB00020),
+                        RoundedCornerShape(4.dp),
+                    ).size(20.dp),
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = if (hasGps) Icons.Default.LocationOn else Icons.Default.LocationOff,
                 contentDescription = if (hasGps) "Has GPS" else "No GPS",
                 tint = Color.White,
-                modifier = Modifier.size(14.dp)
+                modifier = Modifier.size(14.dp),
             )
         }
 
         // Remove button overlay (top-right)
         IconButton(
             onClick = onRemove,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(4.dp)
-                .background(
-                    Color.Black.copy(alpha = 0.5f),
-                    RoundedCornerShape(50)
-                )
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .background(
+                        Color.Black.copy(alpha = 0.5f),
+                        RoundedCornerShape(50),
+                    ),
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Remove",
                 tint = Color.White,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(16.dp),
             )
         }
     }

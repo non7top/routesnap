@@ -234,10 +234,15 @@ class ClusteringAlgorithm(
 
             // Add photo/video segments for this cluster
             for (metadata in cluster) {
-                val segmentType = when {
-                    metadata.uri.toString().lowercase().contains("video") -> SegmentType.VIDEO
-                    else -> SegmentType.PHOTO
-                }
+                val segmentType =
+                    when {
+                        metadata.uri
+                            .toString()
+                            .lowercase()
+                            .contains("video") -> SegmentType.VIDEO
+
+                        else -> SegmentType.PHOTO
+                    }
 
                 val durationMs =
                     if (segmentType == SegmentType.VIDEO) {
