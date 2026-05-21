@@ -111,8 +111,7 @@ class RenderForegroundService : Service() {
 
                         else -> {}
                     }
-                }
-                .launchIn(serviceScope)
+                }.launchIn(serviceScope)
 
         serviceScope.launch {
             val trip = tripRepository.getTripById(tripId)
@@ -184,13 +183,11 @@ class RenderForegroundService : Service() {
                 100,
                 progress,
                 progress == 0,
-            )
-            .addAction(
+            ).addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 "Cancel",
                 cancelPendingIntent,
-            )
-            .build()
+            ).build()
     }
 
     /**

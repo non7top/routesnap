@@ -83,8 +83,7 @@ class RenderViewModel
                                     )
                             }
                         }
-                    }
-                    .launchIn(viewModelScope)
+                    }.launchIn(viewModelScope)
         }
 
         /**

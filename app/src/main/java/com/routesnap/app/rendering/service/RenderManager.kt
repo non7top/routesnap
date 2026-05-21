@@ -113,8 +113,7 @@ class RenderManager
                                         )
                                 }
                             },
-                        )
-                        .build()
+                        ).build()
 
                 this.transformer = transformerInstance
                 transformerInstance.start(composition, outputFile.absolutePath)
@@ -229,8 +228,7 @@ class RenderManager
                             OverlayEffect(listOf(FadeInOutOverlay(durationUs))),
                         ),
                     ),
-                )
-                .build()
+                ).build()
         }
 
         private fun portraitPresentation(): Presentation = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
