@@ -26,6 +26,7 @@ import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TripManifest
+import com.routesnap.app.domain.model.TripSegment
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -112,7 +113,8 @@ class RenderManager
                                         )
                                 }
                             },
-                        ).build()
+                        )
+                        .build()
 
                 this.transformer = transformerInstance
                 transformerInstance.start(composition, outputFile.absolutePath)
@@ -141,86 +143,94 @@ class RenderManager
                 trip.segments.mapNotNull { segment ->
                     val uri = segment.uri ?: return@mapNotNull null
                     android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
-
                     when (segment.type) {
-                        SegmentType.PHOTO -> {
-                            val duration = if (segment.durationMs > 0) segment.durationMs else 5000L
-                            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms cinematic: $cinematic")
-                            val mediaItem =
-                                MediaItem
-                                    .Builder()
-                                    .setUri(uri)
-                                    .setImageDurationMs(duration)
-                                    .build()
-                            val videoEffects =
-                                if (cinematic) {
-                                    // Presentation first: letterbox into portrait frame.
-                                    // Ken Burns second: zooms the portrait frame, growing landscape
-                                    // image outward into the black bar space (pinch-zoom behaviour).
-                                    listOf(portraitPresentation(), kenBurnsZoom(duration, photoIndex))
-                                } else {
-                                    listOf(portraitPresentation())
-                                }
-                            val item =
-                                EditedMediaItem
-                                    .Builder(mediaItem)
-                                    .setFrameRate(30)
-                                    .setEffects(Effects(emptyList(), videoEffects))
-                                    .build()
-                            photoIndex++
-                            item
-                        }
-
-                        SegmentType.VIDEO -> {
-                            EditedMediaItem
-                                .Builder(MediaItem.fromUri(uri))
-                                .setFrameRate(30)
-                                .setEffects(Effects(emptyList(), listOf(portraitPresentation())))
-                                .build()
-                        }
-
-                        SegmentType.MAP_TRAVEL -> {
-                            val portrait = trip.aspectRatio != AspectRatio.LANDSCAPE
-                            val destIndex =
-                                segment.clusterId
-                                    ?.substringAfter("cluster_")
-                                    ?.toIntOrNull()
-                                    ?: 1
-                            val fromName = trip.clusters.getOrNull(destIndex - 1)?.name ?: "Start"
-                            val toName = trip.clusters.getOrNull(destIndex)?.name ?: "End"
-                            val durationMs = if (segment.durationMs > 0) segment.durationMs else 2000L
-
-                            val bitmap = buildTransitionBitmap(fromName, toName, portrait)
-                            val tempFile =
-                                File(context.cacheDir, "transition_$destIndex.jpg").also {
-                                    it.outputStream().use { s -> bitmap.compress(Bitmap.CompressFormat.JPEG, 95, s) }
-                                    bitmap.recycle()
-                                }
-                            val mediaItem =
-                                MediaItem
-                                    .Builder()
-                                    .setUri(Uri.fromFile(tempFile))
-                                    .setImageDurationMs(durationMs)
-                                    .build()
-                            val durationUs = durationMs * 1000L
-                            EditedMediaItem
-                                .Builder(mediaItem)
-                                .setFrameRate(30)
-                                .setEffects(
-                                    Effects(
-                                        emptyList(),
-                                        listOf(
-                                            portraitPresentation(),
-                                            OverlayEffect(listOf(FadeInOutOverlay(durationUs))),
-                                        ),
-                                    ),
-                                ).build()
-                        }
+                        SegmentType.PHOTO -> buildPhotoSegment(uri, segment.durationMs, cinematic, photoIndex).also { photoIndex++ }
+                        SegmentType.VIDEO -> buildVideoSegment(uri)
+                        SegmentType.MAP_TRAVEL -> buildMapTravelSegment(segment, trip)
                     }
                 }
-
             val sequence = EditedMediaItemSequence(editedMediaItems)
-            return Composition.Builder(listOf(sequence)).build()
+            return Composition
+                .Builder(listOf(sequence))
+                .build()
+        }
+
+        private fun buildPhotoSegment(
+            uri: Uri,
+            durationMs: Long,
+            cinematic: Boolean,
+            photoIndex: Int,
+        ): EditedMediaItem {
+            val duration = if (durationMs > 0) durationMs else 5000L
+            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms cinematic: $cinematic")
+            val mediaItem =
+                MediaItem
+                    .Builder()
+                    .setUri(uri)
+                    .setImageDurationMs(duration)
+                    .build()
+            val videoEffects =
+                if (cinematic) {
+                    // Presentation first: letterbox into portrait frame.
+                    // Ken Burns second: zooms the portrait frame, growing landscape
+                    // image outward into the black bar space (pinch-zoom behaviour).
+                    listOf(portraitPresentation(), kenBurnsZoom(duration, photoIndex))
+                } else {
+                    listOf(portraitPresentation())
+                }
+            return EditedMediaItem
+                .Builder(mediaItem)
+                .setFrameRate(30)
+                .setEffects(Effects(emptyList(), videoEffects))
+                .build()
+        }
+
+        private fun buildVideoSegment(uri: Uri): EditedMediaItem =
+            EditedMediaItem
+                .Builder(MediaItem.fromUri(uri))
+                .setFrameRate(30)
+                .setEffects(Effects(emptyList(), listOf(portraitPresentation())))
+                .build()
+
+        private fun buildMapTravelSegment(
+            segment: TripSegment,
+            trip: TripManifest,
+        ): EditedMediaItem {
+            val portrait = trip.aspectRatio != AspectRatio.LANDSCAPE
+            val destIndex =
+                segment.clusterId
+                    ?.substringAfter("cluster_")
+                    ?.toIntOrNull()
+                    ?: 1
+            val fromName = trip.clusters.getOrNull(destIndex - 1)?.name ?: "Start"
+            val toName = trip.clusters.getOrNull(destIndex)?.name ?: "End"
+            val durationMs = if (segment.durationMs > 0) segment.durationMs else 2000L
+            val bitmap = buildTransitionBitmap(fromName, toName, portrait)
+            val tempFile =
+                File(context.cacheDir, "transition_$destIndex.jpg").also {
+                    it.outputStream().use { s -> bitmap.compress(Bitmap.CompressFormat.JPEG, 95, s) }
+                    bitmap.recycle()
+                }
+            val mediaItem =
+                MediaItem
+                    .Builder()
+                    .setUri(Uri.fromFile(tempFile))
+                    .setImageDurationMs(durationMs)
+                    .build()
+            val durationUs = durationMs * 1000L
+            return EditedMediaItem
+                .Builder(mediaItem)
+                .setFrameRate(30)
+                .setEffects(
+                    Effects(
+                        emptyList(),
+                        listOf(
+                            portraitPresentation(),
+                            OverlayEffect(listOf(FadeInOutOverlay(durationUs))),
+                        ),
+                    ),
+                )
+                .build()
         }
 
         private fun portraitPresentation(): Presentation = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)

@@ -28,7 +28,8 @@ abstract class RouteSnapDatabase : RoomDatabase() {
                             context.applicationContext,
                             RouteSnapDatabase::class.java,
                             "routesnap_database",
-                        ).fallbackToDestructiveMigration()
+                        )
+                        .fallbackToDestructiveMigration()
                         .build()
                 instance = dbInstance
                 dbInstance

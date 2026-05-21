@@ -445,7 +445,8 @@ private fun PhotoGridItem(
                     .background(
                         if (hasGps) clusterColor else Color(0xFFB00020),
                         RoundedCornerShape(4.dp),
-                    ).size(20.dp),
+                    )
+                    .size(20.dp),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
