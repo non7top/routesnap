@@ -26,7 +26,11 @@ import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TripManifest
+import com.routesnap.app.domain.model.TripSegment
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,296 +39,356 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Manages video rendering using Media3 Transformer
  */
 @UnstableApi
 @Singleton
-class RenderManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-) {
-    private val _renderState = MutableStateFlow<RenderState>(RenderState.Idle)
-    val renderState: StateFlow<RenderState> = _renderState.asStateFlow()
+class RenderManager
+    @Inject
+    constructor(
+        @ApplicationContext private val context: Context,
+    ) {
+        private val _renderState = MutableStateFlow<RenderState>(RenderState.Idle)
+        val renderState: StateFlow<RenderState> = _renderState.asStateFlow()
 
-    private var transformer: Transformer? = null
-    private var progressJob: Job? = null
-    private val scope = CoroutineScope(Dispatchers.Main + Job())
+        private var transformer: Transformer? = null
+        private var progressJob: Job? = null
+        private val scope = CoroutineScope(Dispatchers.Main + Job())
 
-    /**
-     * Start rendering a trip video
-     */
-    fun startRendering(trip: TripManifest, outputFile: File) {
-        if (_renderState.value is RenderState.Rendering) {
-            android.util.Log.w("RenderManager", "Already rendering, ignoring start request")
-            return
+        /**
+         * Start rendering a trip video
+         */
+        fun startRendering(
+            trip: TripManifest,
+            outputFile: File,
+        ) {
+            if (_renderState.value is RenderState.Rendering) {
+                android.util.Log.w("RenderManager", "Already rendering, ignoring start request")
+                return
+            }
+
+            android.util.Log.i("RenderManager", "Starting render for trip: ${trip.id} (${trip.name})")
+            _renderState.value = RenderState.Rendering(0, "Initializing...")
+
+            try {
+                val composition = buildComposition(trip)
+
+                if (composition.sequences.isEmpty() || composition.sequences[0].editedMediaItems.isEmpty()) {
+                    android.util.Log.e("RenderManager", "Composition is empty for trip: ${trip.id}")
+                    error("Composition is empty - no valid media items found")
+                }
+
+                android.util.Log.d("RenderManager", "Output file: ${outputFile.absolutePath}")
+                if (outputFile.exists()) {
+                    android.util.Log.w("RenderManager", "Output file already exists, deleting: ${outputFile.name}")
+                    outputFile.delete()
+                }
+
+                val transformerInstance =
+                    Transformer
+                        .Builder(context)
+                        .addListener(
+                            object : Transformer.Listener {
+                                override fun onCompleted(
+                                    composition: Composition,
+                                    exportResult: ExportResult,
+                                ) {
+                                    android.util.Log.i("RenderManager", "Rendering completed successfully: ${outputFile.name}")
+                                    progressJob?.cancel()
+                                    _renderState.value = RenderState.Completed(outputFile.absolutePath)
+                                }
+
+                                override fun onError(
+                                    composition: Composition,
+                                    exportResult: ExportResult,
+                                    exportException: ExportException,
+                                ) {
+                                    android.util.Log.e("RenderManager", "Transformer error: ${exportException.message}", exportException)
+                                    progressJob?.cancel()
+                                    _renderState.value =
+                                        RenderState.Failed(
+                                            exportException.message ?: "Unknown rendering error",
+                                        )
+                                }
+                            },
+                        ).build()
+
+                this.transformer = transformerInstance
+                transformerInstance.start(composition, outputFile.absolutePath)
+                android.util.Log.i("RenderManager", "Transformer started successfully")
+
+                // Start progress tracking
+                startProgressTracking(transformerInstance)
+            } catch (e: Exception) {
+                android.util.Log.e("RenderManager", "Failed to start rendering: ${e.message}", e)
+                _renderState.value = RenderState.Failed(e.message ?: "Failed to start rendering")
+            }
         }
 
-        android.util.Log.i("RenderManager", "Starting render for trip: ${trip.id} (${trip.name})")
-        _renderState.value = RenderState.Rendering(0, "Initializing...")
+        /**
+         * Reset the render state to Idle (useful for retries)
+         */
+        fun reset() {
+            cancelRendering()
+            _renderState.value = RenderState.Idle
+        }
 
-        try {
-            val composition = buildComposition(trip)
-
-            if (composition.sequences.isEmpty() || composition.sequences[0].editedMediaItems.isEmpty()) {
-                android.util.Log.e("RenderManager", "Composition is empty for trip: ${trip.id}")
-                error("Composition is empty - no valid media items found")
-            }
-
-            android.util.Log.d("RenderManager", "Output file: ${outputFile.absolutePath}")
-            if (outputFile.exists()) {
-                android.util.Log.w("RenderManager", "Output file already exists, deleting: ${outputFile.name}")
-                outputFile.delete()
-            }
-
-            val transformerInstance = Transformer.Builder(context)
-                .addListener(object : Transformer.Listener {
-                    override fun onCompleted(composition: Composition, exportResult: ExportResult) {
-                        android.util.Log.i("RenderManager", "Rendering completed successfully: ${outputFile.name}")
-                        progressJob?.cancel()
-                        _renderState.value = RenderState.Completed(outputFile.absolutePath)
+        private fun buildComposition(trip: TripManifest): Composition {
+            val cinematic = trip.template == TemplatePreset.CINEMATIC
+            var photoIndex = 0
+            val editedMediaItems =
+                trip.segments.mapNotNull { segment ->
+                    val uri = segment.uri ?: return@mapNotNull null
+                    android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
+                    when (segment.type) {
+                        SegmentType.PHOTO -> buildPhotoSegment(uri, segment.durationMs, cinematic, photoIndex).also { photoIndex++ }
+                        SegmentType.VIDEO -> buildVideoSegment(uri)
+                        SegmentType.MAP_TRAVEL -> buildMapTravelSegment(segment, trip)
                     }
+                }
+            val sequence = EditedMediaItemSequence(editedMediaItems)
+            return Composition
+                .Builder(listOf(sequence))
+                .build()
+        }
 
-                    override fun onError(
-                        composition: Composition,
-                        exportResult: ExportResult,
-                        exportException: ExportException,
-                    ) {
-                        android.util.Log.e("RenderManager", "Transformer error: ${exportException.message}", exportException)
-                        progressJob?.cancel()
-                        _renderState.value = RenderState.Failed(
-                            exportException.message ?: "Unknown rendering error"
-                        )
-                    }
-                })
+        private fun buildPhotoSegment(
+            uri: Uri,
+            durationMs: Long,
+            cinematic: Boolean,
+            photoIndex: Int,
+        ): EditedMediaItem {
+            val duration = if (durationMs > 0) durationMs else 5000L
+            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms cinematic: $cinematic")
+            val mediaItem =
+                MediaItem
+                    .Builder()
+                    .setUri(uri)
+                    .setImageDurationMs(duration)
+                    .build()
+            val videoEffects =
+                if (cinematic) {
+                    // Presentation first: letterbox into portrait frame.
+                    // Ken Burns second: zooms the portrait frame, growing landscape
+                    // image outward into the black bar space (pinch-zoom behaviour).
+                    listOf(portraitPresentation(), kenBurnsZoom(duration, photoIndex))
+                } else {
+                    listOf(portraitPresentation())
+                }
+            return EditedMediaItem
+                .Builder(mediaItem)
+                .setFrameRate(30)
+                .setEffects(Effects(emptyList(), videoEffects))
+                .build()
+        }
+
+        private fun buildVideoSegment(uri: Uri): EditedMediaItem =
+            EditedMediaItem
+                .Builder(MediaItem.fromUri(uri))
+                .setFrameRate(30)
+                .setEffects(Effects(emptyList(), listOf(portraitPresentation())))
                 .build()
 
-            this.transformer = transformerInstance
-            transformerInstance.start(composition, outputFile.absolutePath)
-            android.util.Log.i("RenderManager", "Transformer started successfully")
-
-            // Start progress tracking
-            startProgressTracking(transformerInstance)
-
-        } catch (e: Exception) {
-            android.util.Log.e("RenderManager", "Failed to start rendering: ${e.message}", e)
-            _renderState.value = RenderState.Failed(e.message ?: "Failed to start rendering")
-        }
-    }
-
-    /**
-     * Reset the render state to Idle (useful for retries)
-     */
-    fun reset() {
-        cancelRendering()
-        _renderState.value = RenderState.Idle
-    }
-
-    private fun buildComposition(trip: TripManifest): Composition {
-        val cinematic = trip.template == TemplatePreset.CINEMATIC
-        var photoIndex = 0
-        val editedMediaItems = trip.segments.mapNotNull { segment ->
-            val uri = segment.uri ?: return@mapNotNull null
-            android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
-
-            when (segment.type) {
-                SegmentType.PHOTO -> {
-                    val duration = if (segment.durationMs > 0) segment.durationMs else 5000L
-                    android.util.Log.d("RenderManager", "PHOTO duration: $duration ms cinematic: $cinematic")
-                    val mediaItem = MediaItem.Builder()
-                        .setUri(uri)
-                        .setImageDurationMs(duration)
-                        .build()
-                    val videoEffects = if (cinematic) {
-                        // Presentation first: letterbox into portrait frame.
-                        // Ken Burns second: zooms the portrait frame, growing landscape
-                        // image outward into the black bar space (pinch-zoom behaviour).
-                        listOf(portraitPresentation(), kenBurnsZoom(duration, photoIndex))
-                    } else {
-                        listOf(portraitPresentation())
-                    }
-                    val item = EditedMediaItem.Builder(mediaItem)
-                        .setFrameRate(30)
-                        .setEffects(Effects(emptyList(), videoEffects))
-                        .build()
-                    photoIndex++
-                    item
+        private fun buildMapTravelSegment(
+            segment: TripSegment,
+            trip: TripManifest,
+        ): EditedMediaItem {
+            val portrait = trip.aspectRatio != AspectRatio.LANDSCAPE
+            val destIndex =
+                segment.clusterId
+                    ?.substringAfter("cluster_")
+                    ?.toIntOrNull()
+                    ?: 1
+            val fromName = trip.clusters.getOrNull(destIndex - 1)?.name ?: "Start"
+            val toName = trip.clusters.getOrNull(destIndex)?.name ?: "End"
+            val durationMs = if (segment.durationMs > 0) segment.durationMs else 2000L
+            val bitmap = buildTransitionBitmap(fromName, toName, portrait)
+            val tempFile =
+                File(context.cacheDir, "transition_$destIndex.jpg").also {
+                    it.outputStream().use { s -> bitmap.compress(Bitmap.CompressFormat.JPEG, 95, s) }
+                    bitmap.recycle()
                 }
-                SegmentType.VIDEO -> {
-                    EditedMediaItem.Builder(MediaItem.fromUri(uri))
-                        .setFrameRate(30)
-                        .setEffects(Effects(emptyList(), listOf(portraitPresentation())))
-                        .build()
-                }
-                SegmentType.MAP_TRAVEL -> {
-                    val portrait = trip.aspectRatio != AspectRatio.LANDSCAPE
-                    val destIndex = segment.clusterId
-                        ?.substringAfter("cluster_")
-                        ?.toIntOrNull()
-                        ?: 1
-                    val fromName = trip.clusters.getOrNull(destIndex - 1)?.name ?: "Start"
-                    val toName = trip.clusters.getOrNull(destIndex)?.name ?: "End"
-                    val durationMs = if (segment.durationMs > 0) segment.durationMs else 2000L
-
-                    val bitmap = buildTransitionBitmap(fromName, toName, portrait)
-                    val tempFile = File(context.cacheDir, "transition_$destIndex.jpg").also {
-                        it.outputStream().use { s -> bitmap.compress(Bitmap.CompressFormat.JPEG, 95, s) }
-                        bitmap.recycle()
-                    }
-                    val mediaItem = MediaItem.Builder()
-                        .setUri(Uri.fromFile(tempFile))
-                        .setImageDurationMs(durationMs)
-                        .build()
-                    val durationUs = durationMs * 1000L
-                    EditedMediaItem.Builder(mediaItem)
-                        .setFrameRate(30)
-                        .setEffects(Effects(emptyList(), listOf(
+            val mediaItem =
+                MediaItem
+                    .Builder()
+                    .setUri(Uri.fromFile(tempFile))
+                    .setImageDurationMs(durationMs)
+                    .build()
+            val durationUs = durationMs * 1000L
+            return EditedMediaItem
+                .Builder(mediaItem)
+                .setFrameRate(30)
+                .setEffects(
+                    Effects(
+                        emptyList(),
+                        listOf(
                             portraitPresentation(),
                             OverlayEffect(listOf(FadeInOutOverlay(durationUs))),
-                        )))
-                        .build()
+                        ),
+                    ),
+                ).build()
+        }
+
+        private fun portraitPresentation(): Presentation = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
+
+        private fun kenBurnsZoom(
+            durationMs: Long,
+            index: Int,
+        ): MatrixTransformation {
+            val durationUs = durationMs * 1000L
+            var startUs = -1L
+            val pan = PAN_DIRECTIONS[index % PAN_DIRECTIONS.size]
+            return MatrixTransformation { presentationTimeUs ->
+                if (startUs < 0L) startUs = presentationTimeUs
+                val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
+                // Scale 1.15→1.5: at minimum scale 1.15 we have 0.15 extra per side,
+                // which always exceeds the ±0.06 translation — no black edges possible.
+                val scale = 1.15f + 0.35f * progress
+                val tx = pan[0] + (pan[2] - pan[0]) * progress
+                val ty = pan[1] + (pan[3] - pan[1]) * progress
+                android.graphics.Matrix().apply {
+                    setScale(scale, scale)
+                    postTranslate(tx, ty)
                 }
             }
         }
 
-        val sequence = EditedMediaItemSequence(editedMediaItems)
-        return Composition.Builder(listOf(sequence)).build()
-    }
+        private fun buildTransitionBitmap(
+            fromName: String,
+            toName: String,
+            portrait: Boolean,
+        ): Bitmap {
+            val width = if (portrait) 1080 else 1920
+            val height = if (portrait) 1920 else 1080
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(Color.argb(230, 15, 15, 15))
 
-    private fun portraitPresentation(): Presentation =
-        Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
-
-    private fun kenBurnsZoom(durationMs: Long, index: Int): MatrixTransformation {
-        val durationUs = durationMs * 1000L
-        var startUs = -1L
-        val pan = PAN_DIRECTIONS[index % PAN_DIRECTIONS.size]
-        return MatrixTransformation { presentationTimeUs ->
-            if (startUs < 0L) startUs = presentationTimeUs
-            val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-            // Scale 1.15→1.5: at minimum scale 1.15 we have 0.15 extra per side,
-            // which always exceeds the ±0.06 translation — no black edges possible.
-            val scale = 1.15f + 0.35f * progress
-            val tx = pan[0] + (pan[2] - pan[0]) * progress
-            val ty = pan[1] + (pan[3] - pan[1]) * progress
-            android.graphics.Matrix().apply {
-                setScale(scale, scale)
-                postTranslate(tx, ty)
+            val textPaint =
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE
+                    textAlign = Paint.Align.CENTER
+                    textSize = if (portrait) 96f else 72f
+                    typeface = Typeface.DEFAULT_BOLD
+                }
+            val arrowPaint =
+                Paint(textPaint).apply {
+                    textSize = if (portrait) 80f else 60f
+                    alpha = 180
+                }
+            val cx = width / 2f
+            val cy = height / 2f
+            if (portrait) {
+                canvas.drawText(fromName, cx, cy - 140f, textPaint)
+                canvas.drawText("↓", cx, cy + textPaint.textSize / 2, arrowPaint)
+                canvas.drawText(toName, cx, cy + 200f, textPaint)
+            } else {
+                canvas.drawText("$fromName  →  $toName", cx, cy + textPaint.textSize / 3, textPaint)
             }
+            return bitmap
         }
-    }
 
-    private fun buildTransitionBitmap(fromName: String, toName: String, portrait: Boolean): Bitmap {
-        val width = if (portrait) 1080 else 1920
-        val height = if (portrait) 1920 else 1080
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        canvas.drawColor(Color.argb(230, 15, 15, 15))
+        private fun startProgressTracking(transformer: Transformer) {
+            progressJob?.cancel()
+            progressJob =
+                scope.launch {
+                    while (true) {
+                        val progressHolder = androidx.media3.transformer.ProgressHolder()
+                        val progressState = transformer.getProgress(progressHolder)
 
-        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textAlign = Paint.Align.CENTER
-            textSize = if (portrait) 96f else 72f
-            typeface = Typeface.DEFAULT_BOLD
-        }
-        val arrowPaint = Paint(textPaint).apply {
-            textSize = if (portrait) 80f else 60f
-            alpha = 180
-        }
-        val cx = width / 2f
-        val cy = height / 2f
-        if (portrait) {
-            canvas.drawText(fromName, cx, cy - 140f, textPaint)
-            canvas.drawText("↓", cx, cy + textPaint.textSize / 2, arrowPaint)
-            canvas.drawText(toName, cx, cy + 200f, textPaint)
-        } else {
-            canvas.drawText("$fromName  →  $toName", cx, cy + textPaint.textSize / 3, textPaint)
-        }
-        return bitmap
-    }
+                        if (progressState == Transformer.PROGRESS_STATE_AVAILABLE) {
+                            val currentRendering = _renderState.value as? RenderState.Rendering
+                            if (currentRendering != null) {
+                                _renderState.value =
+                                    RenderState.Rendering(
+                                        progressHolder.progress,
+                                        "Exporting video...",
+                                    )
+                            }
+                        }
 
-    private fun startProgressTracking(transformer: Transformer) {
-        progressJob?.cancel()
-        progressJob = scope.launch {
-            while (true) {
-                val progressHolder = androidx.media3.transformer.ProgressHolder()
-                val progressState = transformer.getProgress(progressHolder)
+                        if (progressState == Transformer.PROGRESS_STATE_NOT_STARTED ||
+                            progressState == Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY
+                        ) {
+                            // Do nothing or wait
+                        }
 
-                if (progressState == Transformer.PROGRESS_STATE_AVAILABLE) {
-                    val currentRendering = _renderState.value as? RenderState.Rendering
-                    if (currentRendering != null) {
-                        _renderState.value = RenderState.Rendering(
-                            progressHolder.progress,
-                            "Exporting video..."
-                        )
+                        delay(500) // Update progress every 500ms
                     }
                 }
-
-                if (progressState == Transformer.PROGRESS_STATE_NOT_STARTED ||
-                    progressState == Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
-                    // Do nothing or wait
-                }
-
-                delay(500) // Update progress every 500ms
-            }
         }
-    }
 
-    /**
-     * Cancel the current rendering operation
-     */
-    fun cancelRendering() {
-        transformer?.cancel()
-        progressJob?.cancel()
-        transformer = null
-        _renderState.value = RenderState.Cancelled
-    }
-
-    companion object {
-        // [startX, startY, endX, endY] in NDC units [-1,1]. Values ±0.06 stay within
-        // the 0.1 extra margin that the minimum scale of 1.1 provides on each side.
-        private val PAN_DIRECTIONS = arrayOf(
-            floatArrayOf(-0.06f, -0.06f,  0.06f,  0.06f),  // TL→BR
-            floatArrayOf( 0.06f, -0.06f, -0.06f,  0.06f),  // TR→BL
-            floatArrayOf(-0.06f,  0.06f,  0.06f, -0.06f),  // BL→TR
-            floatArrayOf( 0.06f,  0.06f, -0.06f, -0.06f),  // BR→TL
-        )
-    }
-
-    private class FadeInOutOverlay(private val durationUs: Long) : BitmapOverlay() {
-        private val blackBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
-            eraseColor(Color.BLACK)
-        }
-        private var startUs = -1L
-
-        override fun getBitmap(presentationTimeUs: Long): Bitmap = blackBitmap
-
-        override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
-            if (startUs < 0L) startUs = presentationTimeUs
-            val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-            val alpha = when {
-                progress < FADE_RATIO -> 1f - (progress / FADE_RATIO)
-                progress > 1f - FADE_RATIO -> (progress - (1f - FADE_RATIO)) / FADE_RATIO
-                else -> 0f
-            }
-            return OverlaySettings.Builder().setAlphaScale(alpha).build()
+        /**
+         * Cancel the current rendering operation
+         */
+        fun cancelRendering() {
+            transformer?.cancel()
+            progressJob?.cancel()
+            transformer = null
+            _renderState.value = RenderState.Cancelled
         }
 
         companion object {
-            private const val FADE_RATIO = 0.3f
+            // [startX, startY, endX, endY] in NDC units [-1,1]. Values ±0.06 stay within
+            // the 0.1 extra margin that the minimum scale of 1.1 provides on each side.
+            private val PAN_DIRECTIONS =
+                arrayOf(
+                    floatArrayOf(-0.06f, -0.06f, 0.06f, 0.06f), // TL→BR
+                    floatArrayOf(0.06f, -0.06f, -0.06f, 0.06f), // TR→BL
+                    floatArrayOf(-0.06f, 0.06f, 0.06f, -0.06f), // BL→TR
+                    floatArrayOf(0.06f, 0.06f, -0.06f, -0.06f), // BR→TL
+                )
+        }
+
+        private class FadeInOutOverlay(
+            private val durationUs: Long,
+        ) : BitmapOverlay() {
+            private val blackBitmap =
+                Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
+                    eraseColor(Color.BLACK)
+                }
+            private var startUs = -1L
+
+            override fun getBitmap(presentationTimeUs: Long): Bitmap = blackBitmap
+
+            override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
+                if (startUs < 0L) startUs = presentationTimeUs
+                val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
+                val alpha =
+                    when {
+                        progress < FADE_RATIO -> 1f - (progress / FADE_RATIO)
+                        progress > 1f - FADE_RATIO -> (progress - (1f - FADE_RATIO)) / FADE_RATIO
+                        else -> 0f
+                    }
+                return OverlaySettings.Builder().setAlphaScale(alpha).build()
+            }
+
+            companion object {
+                private const val FADE_RATIO = 0.3f
+            }
+        }
+
+        /**
+         * Sealed class representing render states
+         */
+        sealed class RenderState {
+            object Idle : RenderState()
+
+            data class Rendering(
+                val progress: Int,
+                val status: String,
+            ) : RenderState()
+
+            data class Completed(
+                val outputPath: String,
+            ) : RenderState()
+
+            data class Failed(
+                val error: String,
+            ) : RenderState()
+
+            object Cancelled : RenderState()
         }
     }
-
-    /**
-     * Sealed class representing render states
-     */
-    sealed class RenderState {
-        object Idle : RenderState()
-        data class Rendering(val progress: Int, val status: String) : RenderState()
-        data class Completed(val outputPath: String) : RenderState()
-        data class Failed(val error: String) : RenderState()
-        object Cancelled : RenderState()
-    }
-}

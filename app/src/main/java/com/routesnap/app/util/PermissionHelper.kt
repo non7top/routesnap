@@ -9,42 +9,58 @@ import androidx.core.content.ContextCompat
 /**
  * Helper class for handling runtime permissions
  */
-class PermissionHelper(private val context: Context) {
-
+class PermissionHelper(
+    private val context: Context,
+) {
     /**
      * Check if media reading permissions are granted
      */
-    fun hasMediaPermission(): Boolean = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.READ_MEDIA_IMAGES
-            ) == PackageManager.PERMISSION_GRANTED ||
+    fun hasMediaPermission(): Boolean =
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
                 ContextCompat.checkSelfPermission(
                     context,
-                    Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
-                ) == PackageManager.PERMISSION_GRANTED
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                ) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+                    ) == PackageManager.PERMISSION_GRANTED
+            }
 
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> true
-        else -> ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        ) == PackageManager.PERMISSION_GRANTED
-    }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
+                true
+            }
+
+            else -> {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+        }
 
     /**
      * Get required permissions based on Android version
      */
-    fun getRequiredPermissions(): Array<String> = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> arrayOf(
-            Manifest.permission.READ_MEDIA_IMAGES,
-            Manifest.permission.READ_MEDIA_VIDEO,
-            Manifest.permission.ACCESS_MEDIA_LOCATION,
-        )
+    fun getRequiredPermissions(): Array<String> =
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                arrayOf(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VIDEO,
+                    Manifest.permission.ACCESS_MEDIA_LOCATION,
+                )
+            }
 
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> arrayOf(
-            Manifest.permission.ACCESS_MEDIA_LOCATION,
-        )
-        else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-    }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
+                arrayOf(
+                    Manifest.permission.ACCESS_MEDIA_LOCATION,
+                )
+            }
+
+            else -> {
+                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        }
 }

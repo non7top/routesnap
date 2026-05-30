@@ -42,8 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.util.UnstableApi
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.media3.common.util.UnstableApi
 import com.routesnap.app.ui.theme.RouteSnapTheme
 
 /**
@@ -100,28 +100,30 @@ fun RenderScreen(
                             }
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                            navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
                 )
-            }
+            },
         ) { paddingValues ->
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                contentAlignment = Alignment.Center,
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(32.dp)
+                    modifier = Modifier.padding(32.dp),
                 ) {
                     // Render icon
                     RenderIcon(
                         isComplete = uiState.isComplete,
-                        isError = uiState.error != null
+                        isError = uiState.error != null,
                     )
 
                     Spacer(modifier = Modifier.height(32.dp))
@@ -130,7 +132,7 @@ fun RenderScreen(
                     Text(
                         text = uiState.status,
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
 
                     if (uiState.error != null) {
@@ -148,7 +150,7 @@ fun RenderScreen(
                         Text(
                             text = "Estimated time: $eta",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
 
@@ -167,7 +169,7 @@ fun RenderScreen(
                         Text(
                             text = "${uiState.progress}%",
                             style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                     }
 
@@ -177,7 +179,7 @@ fun RenderScreen(
                         Button(
                             onClick = {
                                 tripId?.let { viewModel.retryRendering(it) }
-                            }
+                            },
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
@@ -200,10 +202,11 @@ private fun RenderIcon(
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(2000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
         label = "rotation",
     )
 
@@ -215,27 +218,30 @@ private fun RenderIcon(
                 imageVector = Icons.Default.Error,
                 contentDescription = null,
                 modifier = Modifier.size(iconSize),
-                tint = MaterialTheme.colorScheme.error
+                tint = MaterialTheme.colorScheme.error,
             )
         }
+
         isComplete -> {
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = null,
                 modifier = Modifier.size(iconSize),
-                tint = MaterialTheme.colorScheme.secondary
+                tint = MaterialTheme.colorScheme.secondary,
             )
         }
+
         else -> {
             Icon(
                 imageVector = Icons.Default.Movie,
                 contentDescription = null,
-                modifier = Modifier
-                    .size(iconSize)
-                    .graphicsLayer {
-                        rotationZ = rotation
-                    },
-                tint = MaterialTheme.colorScheme.primary
+                modifier =
+                    Modifier
+                        .size(iconSize)
+                        .graphicsLayer {
+                            rotationZ = rotation
+                        },
+                tint = MaterialTheme.colorScheme.primary,
             )
         }
     }

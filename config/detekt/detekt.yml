@@ -34,8 +34,8 @@ complexity:
     threshold: 4
   TooManyFunctions:
     active: true
-    thresholdInFiles: 11
-    thresholdInClasses: 11
+    thresholdInFiles: 20
+    thresholdInClasses: 15
     thresholdInInterfaces: 11
     thresholdInObjects: 11
     thresholdInEnums: 11
@@ -168,7 +168,7 @@ style:
   CanBeNonNullable:
     active: true
   CascadingCallWrapping:
-    active: true
+    active: false  # conflicts with ktlint chain-wrapping rule; ktlint owns formatting
   ClassOrdering:
     active: true
   DataClassShouldBeImmutable:

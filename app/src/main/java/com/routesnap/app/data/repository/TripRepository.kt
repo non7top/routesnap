@@ -32,7 +32,8 @@ class TripRepository(
     private val metadataExtractor = MetadataExtractor(contentResolver)
     private val clusteringAlgorithm = ClusteringAlgorithm()
     private val moshi =
-        Moshi.Builder()
+        Moshi
+            .Builder()
             .add(KotlinJsonAdapterFactory())
             .add(UriAdapter)
             .build()
@@ -80,7 +81,11 @@ class TripRepository(
         }
     }
 
-    suspend fun updateTripStyle(tripId: String, template: TemplatePreset, aspectRatio: AspectRatio) {
+    suspend fun updateTripStyle(
+        tripId: String,
+        template: TemplatePreset,
+        aspectRatio: AspectRatio,
+    ) {
         val trip = getTripById(tripId) ?: return
         saveTrip(trip.copy(template = template, aspectRatio = aspectRatio))
     }
@@ -124,8 +129,7 @@ class TripRepository(
     /**
      * Extract metadata from URIs (for UI display)
      */
-    suspend fun extractMetadataBatch(uris: List<Uri>): List<MediaMetadata> =
-        metadataExtractor.extractMetadataBatch(uris)
+    suspend fun extractMetadataBatch(uris: List<Uri>): List<MediaMetadata> = metadataExtractor.extractMetadataBatch(uris)
 
     /**
      * Create a new trip from selected media

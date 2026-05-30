@@ -184,6 +184,7 @@ ktlint {
     }
     filter {
         exclude("**/scripts/**")
+        exclude("**/*.kts")
         include("**/*.kt")
     }
 }

@@ -10,11 +10,11 @@ import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 enum class PickerMode { STANDARD, GPS_PRESERVING }
 
@@ -53,149 +53,158 @@ data class SelectedMediaMetadata(
  * ViewModel for the photo picker screen
  */
 @HiltViewModel
-class PickerViewModel @Inject constructor(
-    private val tripRepository: TripRepository,
-    private val contentResolver: ContentResolver
-) : ViewModel() {
+class PickerViewModel
+    @Inject
+    constructor(
+        private val tripRepository: TripRepository,
+        private val contentResolver: ContentResolver,
+    ) : ViewModel() {
+        private val _uiState = MutableStateFlow(PickerUiState())
+        val uiState: StateFlow<PickerUiState> = _uiState.asStateFlow()
 
-    private val _uiState = MutableStateFlow(PickerUiState())
-    val uiState: StateFlow<PickerUiState> = _uiState.asStateFlow()
-
-    /**
-     * Add selected URIs from Photo Picker
-     */
-    fun addSelectedUris(uris: List<Uri>) {
-        // Take persistable permissions for background access
-        uris.forEach { uri ->
-            try {
-                contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (e: SecurityException) {
-                Log.e("PickerViewModel", "Failed to take persistable permission for $uri", e)
-            }
-        }
-
-        val currentUris = _uiState.value.selectedUris
-        val updatedUris = currentUris + uris
-        _uiState.value = _uiState.value.copy(
-            selectedUris = updatedUris.distinct()
-        )
-        extractMetadataForSelected()
-    }
-
-    /**
-     * Remove a URI from selection
-     */
-    fun removeUri(uri: Uri) {
-        val updatedUris = _uiState.value.selectedUris - uri
-        _uiState.value = _uiState.value.copy(
-            selectedUris = updatedUris
-        )
-        extractMetadataForSelected()
-    }
-
-    /**
-     * Clear all selections
-     */
-    fun clearSelection() {
-        _uiState.value = PickerUiState()
-    }
-
-    fun togglePickerMode() {
-        _uiState.value = _uiState.value.copy(
-            pickerMode = if (_uiState.value.pickerMode == PickerMode.GPS_PRESERVING) {
-                PickerMode.STANDARD
-            } else {
-                PickerMode.GPS_PRESERVING
-            }
-        )
-    }
-
-    /**
-     * Update trip name
-     */
-    fun updateTripName(name: String) {
-        _uiState.value = _uiState.value.copy(tripName = name)
-    }
-
-    /**
-     * Extract metadata and create clusters
-     */
-    private fun extractMetadataForSelected() {
-        val uris = _uiState.value.selectedUris
-        if (uris.isEmpty()) {
-            _uiState.value = _uiState.value.copy(
-                metadata = emptyList(),
-                segments = emptyList(),
-                clusterCount = 0,
-                estimatedDurationSeconds = 0,
-                photosWithGps = 0,
-                totalPhotos = 0
-            )
-            return
-        }
-
-        _uiState.value = _uiState.value.copy(isProcessing = true)
-
-        viewModelScope.launch {
-            try {
-                // Extract metadata from URIs
-                val metadataList = tripRepository.extractMetadataBatch(uris)
-
-                // Create segment to cluster mapping
-                val segments = tripRepository.processSelectedMedia(uris)
-                val uriToClusterMap = segments.associate { it.uri to it.clusterId }
-
-                // Convert to UI metadata with cluster info
-                val metadata = metadataList.map { m ->
-                    SelectedMediaMetadata(
-                        uri = m.uri,
-                        hasLocation = m.hasLocation,
-                        timestamp = m.timestamp,
-                        clusterId = uriToClusterMap[m.uri]
+        /**
+         * Add selected URIs from Photo Picker
+         */
+        fun addSelectedUris(uris: List<Uri>) {
+            // Take persistable permissions for background access
+            uris.forEach { uri ->
+                try {
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
                     )
+                } catch (e: SecurityException) {
+                    Log.e("PickerViewModel", "Failed to take persistable permission for $uri", e)
                 }
+            }
 
-                val clusterCount = segments.mapNotNull { it.clusterId }.distinct().size
-                val totalDurationMs = segments.sumOf { it.durationMs }
-                val photosWithGps = metadataList.count { it.hasLocation }
-
-                _uiState.value = _uiState.value.copy(
-                    metadata = metadata,
-                    segments = segments,
-                    clusterCount = clusterCount,
-                    estimatedDurationSeconds = (totalDurationMs / 1000).toInt(),
-                    photosWithGps = photosWithGps,
-                    totalPhotos = uris.size,
-                    isProcessing = false
+            val currentUris = _uiState.value.selectedUris
+            val updatedUris = currentUris + uris
+            _uiState.value =
+                _uiState.value.copy(
+                    selectedUris = updatedUris.distinct(),
                 )
+            extractMetadataForSelected()
+        }
+
+        /**
+         * Remove a URI from selection
+         */
+        fun removeUri(uri: Uri) {
+            val updatedUris = _uiState.value.selectedUris - uri
+            _uiState.value =
+                _uiState.value.copy(
+                    selectedUris = updatedUris,
+                )
+            extractMetadataForSelected()
+        }
+
+        /**
+         * Clear all selections
+         */
+        fun clearSelection() {
+            _uiState.value = PickerUiState()
+        }
+
+        fun togglePickerMode() {
+            _uiState.value =
+                _uiState.value.copy(
+                    pickerMode =
+                        if (_uiState.value.pickerMode == PickerMode.GPS_PRESERVING) {
+                            PickerMode.STANDARD
+                        } else {
+                            PickerMode.GPS_PRESERVING
+                        },
+                )
+        }
+
+        /**
+         * Update trip name
+         */
+        fun updateTripName(name: String) {
+            _uiState.value = _uiState.value.copy(tripName = name)
+        }
+
+        /**
+         * Extract metadata and create clusters
+         */
+        private fun extractMetadataForSelected() {
+            val uris = _uiState.value.selectedUris
+            if (uris.isEmpty()) {
+                _uiState.value =
+                    _uiState.value.copy(
+                        metadata = emptyList(),
+                        segments = emptyList(),
+                        clusterCount = 0,
+                        estimatedDurationSeconds = 0,
+                        photosWithGps = 0,
+                        totalPhotos = 0,
+                    )
+                return
+            }
+
+            _uiState.value = _uiState.value.copy(isProcessing = true)
+
+            viewModelScope.launch {
+                try {
+                    // Extract metadata from URIs
+                    val metadataList = tripRepository.extractMetadataBatch(uris)
+
+                    // Create segment to cluster mapping
+                    val segments = tripRepository.processSelectedMedia(uris)
+                    val uriToClusterMap = segments.associate { it.uri to it.clusterId }
+
+                    // Convert to UI metadata with cluster info
+                    val metadata =
+                        metadataList.map { m ->
+                            SelectedMediaMetadata(
+                                uri = m.uri,
+                                hasLocation = m.hasLocation,
+                                timestamp = m.timestamp,
+                                clusterId = uriToClusterMap[m.uri],
+                            )
+                        }
+
+                    val clusterCount = segments.mapNotNull { it.clusterId }.distinct().size
+                    val totalDurationMs = segments.sumOf { it.durationMs }
+                    val photosWithGps = metadataList.count { it.hasLocation }
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            metadata = metadata,
+                            segments = segments,
+                            clusterCount = clusterCount,
+                            estimatedDurationSeconds = (totalDurationMs / 1000).toInt(),
+                            photosWithGps = photosWithGps,
+                            totalPhotos = uris.size,
+                            isProcessing = false,
+                        )
+                } catch (e: Exception) {
+                    _uiState.value =
+                        _uiState.value.copy(
+                            error = e.message ?: "Unknown error",
+                            isProcessing = false,
+                        )
+                }
+            }
+        }
+
+        /**
+         * Create the trip and save to database
+         */
+        suspend fun createTrip(): TripManifest? {
+            val uris = _uiState.value.selectedUris
+            val name = _uiState.value.tripName.ifEmpty { "New Trip" }
+
+            if (uris.isEmpty()) {
+                return null
+            }
+
+            return try {
+                tripRepository.createTripFromMedia(name, uris)
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Unknown error",
-                    isProcessing = false
-                )
+                _uiState.value = _uiState.value.copy(error = e.message ?: "Failed to create trip")
+                null
             }
         }
     }
-
-    /**
-     * Create the trip and save to database
-     */
-    suspend fun createTrip(): TripManifest? {
-        val uris = _uiState.value.selectedUris
-        val name = _uiState.value.tripName.ifEmpty { "New Trip" }
-
-        if (uris.isEmpty()) {
-            return null
-        }
-
-        return try {
-            tripRepository.createTripFromMedia(name, uris)
-        } catch (e: Exception) {
-            _uiState.value = _uiState.value.copy(error = e.message ?: "Failed to create trip")
-            null
-        }
-    }
-}
