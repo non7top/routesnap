@@ -143,24 +143,23 @@ class RenderManager
 
         private fun effectiveTransition(
             segment: TripSegment,
-            template: TemplatePreset,
+            trip: TripManifest,
         ): TransitionParams =
             TransitionParams(
-                type = segment.transitionType ?: template.defaultTransitionType,
-                durationMs = segment.transitionDurationMs ?: template.defaultTransitionDurationMs,
+                type = segment.transitionType ?: trip.transitionOverride ?: trip.template.defaultTransitionType,
+                durationMs = segment.transitionDurationMs ?: trip.template.defaultTransitionDurationMs,
             )
 
         private fun buildComposition(trip: TripManifest): Composition {
-            val cinematic = trip.template == TemplatePreset.CINEMATIC
             var photoIndex = 0
             val editedMediaItems =
                 trip.segments.mapNotNull { segment ->
                     val uri = segment.uri ?: return@mapNotNull null
                     android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
-                    val transition = effectiveTransition(segment, trip.template)
+                    val transition = effectiveTransition(segment, trip)
                     when (segment.type) {
                         SegmentType.PHOTO -> {
-                            buildPhotoSegment(uri, segment.durationMs, cinematic, photoIndex, transition)
+                            buildPhotoSegment(uri, segment.durationMs, photoIndex, transition)
                                 .also { photoIndex++ }
                         }
 
@@ -182,12 +181,11 @@ class RenderManager
         private fun buildPhotoSegment(
             uri: Uri,
             durationMs: Long,
-            cinematic: Boolean,
             photoIndex: Int,
             transition: TransitionParams,
         ): EditedMediaItem {
             val duration = if (durationMs > 0) durationMs else 5000L
-            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms cinematic: $cinematic transition: ${transition.type} ${transition.durationMs}ms")
+            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms transition: ${transition.type} ${transition.durationMs}ms")
             val mediaItem =
                 MediaItem
                     .Builder()
@@ -196,13 +194,10 @@ class RenderManager
                     .build()
             val videoEffects =
                 buildList {
+                    // Presentation first: letterbox into portrait frame.
+                    // Ken Burns applied to all templates — duration drives motion amount.
                     add(portraitPresentation())
-                    if (cinematic) {
-                        // Presentation first: letterbox into portrait frame.
-                        // Ken Burns second: zooms the portrait frame, growing landscape
-                        // image outward into the black bar space (pinch-zoom behaviour).
-                        add(kenBurnsZoom(duration, photoIndex))
-                    }
+                    add(kenBurnsZoom(duration, photoIndex))
                     if (transition.type != TransitionType.NONE) {
                         val durationUs = duration * 1000L
                         val fadeDurationUs = transition.durationMs * 1000L

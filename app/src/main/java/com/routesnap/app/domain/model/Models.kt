@@ -47,7 +47,12 @@ data class LatLng(
  * NONE = hard cut, FADE_BLACK / FADE_WHITE = dip through colour,
  * FLASH = white spike that decays rapidly at the segment head.
  */
-enum class TransitionType { NONE, FADE_BLACK, FADE_WHITE, FLASH }
+enum class TransitionType(val label: String) {
+    NONE("Cut"),
+    FADE_BLACK("Fade"),
+    FADE_WHITE("Dip White"),
+    FLASH("Flash"),
+}
 
 /**
  * Represents a single segment in the trip video timeline
@@ -139,6 +144,7 @@ data class TripManifest(
     val totalDurationMs: Long = 0,
     val aspectRatio: AspectRatio = AspectRatio.PORTRAIT,
     val template: TemplatePreset = TemplatePreset.BALANCED,
+    val transitionOverride: TransitionType? = null,
     val musicUri: Uri? = null,
     val status: RenderStatus = RenderStatus.DRAFT,
     val outputPath: String? = null,
