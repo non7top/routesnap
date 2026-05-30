@@ -195,14 +195,17 @@ class RenderManager
             val videoEffects =
                 buildList {
                     // Presentation first: letterbox into portrait frame.
-                    // Ken Burns applied to all templates — duration drives motion amount.
+                    // Transition overlay second: must come before MatrixTransformation
+                    // (Ken Burns) — Media3 does not apply BitmapOverlay correctly when
+                    // a MatrixTransformation precedes it in the same effects chain.
                     add(portraitPresentation())
-                    add(kenBurnsZoom(duration, photoIndex))
                     if (transition.type != TransitionType.NONE) {
                         val durationUs = duration * 1000L
                         val fadeDurationUs = transition.durationMs * 1000L
                         add(OverlayEffect(listOf(TransitionOverlay(durationUs, fadeDurationUs, transition.type))))
                     }
+                    // Ken Burns last — zooms the already-composited frame.
+                    add(kenBurnsZoom(duration, photoIndex))
                 }
             return EditedMediaItem
                 .Builder(mediaItem)
