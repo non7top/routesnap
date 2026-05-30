@@ -392,7 +392,10 @@ class RenderManager
         ) : RgbMatrix {
             private var startUs = -1L
 
-            override fun getMatrix(presentationTimeUs: Long, useHdr: Boolean): FloatArray {
+            override fun getMatrix(
+                presentationTimeUs: Long,
+                useHdr: Boolean,
+            ): FloatArray {
                 if (startUs < 0L) startUs = presentationTimeUs
                 val elapsed = presentationTimeUs - startUs
                 val alpha = maxOf(headAlpha(elapsed), tailAlpha(elapsed)).coerceIn(0f, 1f)
@@ -400,18 +403,42 @@ class RenderManager
                 return if (type == TransitionType.FADE_WHITE || type == TransitionType.FLASH) {
                     // Fade to white: scale channels toward 0 and add alpha as constant offset
                     floatArrayOf(
-                        progress, 0f,      0f,      0f,
-                        0f,      progress, 0f,      0f,
-                        0f,      0f,      progress, 0f,
-                        alpha,   alpha,   alpha,   1f,
+                        progress,
+                        0f,
+                        0f,
+                        0f,
+                        0f,
+                        progress,
+                        0f,
+                        0f,
+                        0f,
+                        0f,
+                        progress,
+                        0f,
+                        alpha,
+                        alpha,
+                        alpha,
+                        1f,
                     )
                 } else {
                     // Fade to black: scale all channels toward 0
                     floatArrayOf(
-                        progress, 0f,      0f,      0f,
-                        0f,      progress, 0f,      0f,
-                        0f,      0f,      progress, 0f,
-                        0f,      0f,      0f,      1f,
+                        progress,
+                        0f,
+                        0f,
+                        0f,
+                        0f,
+                        progress,
+                        0f,
+                        0f,
+                        0f,
+                        0f,
+                        progress,
+                        0f,
+                        0f,
+                        0f,
+                        0f,
+                        1f,
                     )
                 }
             }
