@@ -47,7 +47,9 @@ data class LatLng(
  * NONE = hard cut, FADE_BLACK / FADE_WHITE = dip through colour,
  * FLASH = white spike that decays rapidly at the segment head.
  */
-enum class TransitionType(val label: String) {
+enum class TransitionType(
+    val label: String,
+) {
     NONE("Cut"),
     FADE_BLACK("Fade"),
     FADE_WHITE("Dip White"),

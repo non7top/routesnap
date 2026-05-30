@@ -347,13 +347,14 @@ private fun TransitionSelector(
     selectedTransition: TransitionType?,
     onTransitionSelect: (TransitionType?) -> Unit,
 ) {
-    val options = listOf(
-        null to "Auto (${selectedTemplate.defaultTransitionType.label})",
-        TransitionType.FADE_BLACK to TransitionType.FADE_BLACK.label,
-        TransitionType.FADE_WHITE to TransitionType.FADE_WHITE.label,
-        TransitionType.FLASH to TransitionType.FLASH.label,
-        TransitionType.NONE to TransitionType.NONE.label,
-    )
+    val options =
+        listOf(
+            null to "Auto (${selectedTemplate.defaultTransitionType.label})",
+            TransitionType.FADE_BLACK to TransitionType.FADE_BLACK.label,
+            TransitionType.FADE_WHITE to TransitionType.FADE_WHITE.label,
+            TransitionType.FLASH to TransitionType.FLASH.label,
+            TransitionType.NONE to TransitionType.NONE.label,
+        )
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             text = "Override per-trip or leave Auto to use the template default.",
