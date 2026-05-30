@@ -9,11 +9,9 @@ import android.graphics.Typeface
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.MatrixTransformation
-import androidx.media3.effect.OverlayEffect
-import androidx.media3.effect.OverlaySettings
 import androidx.media3.effect.Presentation
+import androidx.media3.effect.RgbMatrix
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
@@ -194,17 +192,10 @@ class RenderManager
                     .build()
             val videoEffects =
                 buildList {
-                    // Presentation first: letterbox into portrait frame.
-                    // Transition overlay second: must come before MatrixTransformation
-                    // (Ken Burns) — Media3 does not apply BitmapOverlay correctly when
-                    // a MatrixTransformation precedes it in the same effects chain.
                     add(portraitPresentation())
                     if (transition.type != TransitionType.NONE) {
-                        val durationUs = duration * 1000L
-                        val fadeDurationUs = transition.durationMs * 1000L
-                        add(OverlayEffect(listOf(TransitionOverlay(durationUs, fadeDurationUs, transition.type))))
+                        add(FadeRgbMatrix(duration * 1000L, transition.durationMs * 1000L, transition.type))
                     }
-                    // Ken Burns last — zooms the already-composited frame.
                     add(kenBurnsZoom(duration, photoIndex))
                 }
             return EditedMediaItem
@@ -221,10 +212,9 @@ class RenderManager
             val videoEffects =
                 buildList {
                     add(portraitPresentation())
-                    // Video duration is unknown ahead of time — apply head-only fade (no tail).
+                    // Video duration unknown — pass -1 so tail fade is skipped.
                     if (transition.type != TransitionType.NONE) {
-                        val fadeDurationUs = transition.durationMs * 1000L
-                        add(OverlayEffect(listOf(TransitionOverlay(-1L, fadeDurationUs, transition.type))))
+                        add(FadeRgbMatrix(-1L, transition.durationMs * 1000L, transition.type))
                     }
                 }
             return EditedMediaItem
@@ -260,6 +250,7 @@ class RenderManager
                     .setImageDurationMs(durationMs)
                     .build()
             val durationUs = durationMs * 1000L
+            val fadeDurationUs = (durationMs * 0.3).toLong() * 1000L
             return EditedMediaItem
                 .Builder(mediaItem)
                 .setFrameRate(30)
@@ -268,7 +259,7 @@ class RenderManager
                         emptyList(),
                         listOf(
                             portraitPresentation(),
-                            OverlayEffect(listOf(FadeInOutOverlay(durationUs))),
+                            FadeRgbMatrix(durationUs, fadeDurationUs, TransitionType.FADE_BLACK),
                         ),
                     ),
                 ).build()
@@ -385,71 +376,51 @@ class RenderManager
                 )
         }
 
-        private class FadeInOutOverlay(
-            private val durationUs: Long,
-        ) : BitmapOverlay() {
-            private val blackBitmap =
-                Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
-                    eraseColor(Color.BLACK)
-                }
-            private var startUs = -1L
-
-            override fun getBitmap(presentationTimeUs: Long): Bitmap = blackBitmap
-
-            override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
-                if (startUs < 0L) startUs = presentationTimeUs
-                val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-                val alpha =
-                    when {
-                        progress < FADE_RATIO -> 1f - (progress / FADE_RATIO)
-                        progress > 1f - FADE_RATIO -> (progress - (1f - FADE_RATIO)) / FADE_RATIO
-                        else -> 0f
-                    }
-                return OverlaySettings.Builder().setAlphaScale(alpha).build()
-            }
-
-            companion object {
-                private const val FADE_RATIO = 0.3f
-            }
-        }
-
         /**
-         * Applies a transition at the head and/or tail of a segment.
+         * RgbMatrix-based fade transition. getMatrix() is called per-frame by Media3,
+         * making it work correctly for both video and image (setImageDurationMs) segments,
+         * unlike BitmapOverlay.getOverlaySettings() which is not called per-frame on images.
          *
-         * @param segmentDurationUs total segment duration; pass -1 for unknown (video) — tail fade is skipped
+         * @param segmentDurationUs total segment duration; -1 = unknown (video) — tail is skipped
          * @param fadeDurationUs duration of each fade ramp in microseconds
-         * @param type FADE_BLACK, FADE_WHITE, or FLASH; NONE is never passed here
+         * @param type FADE_BLACK, FADE_WHITE, or FLASH
          */
-        private class TransitionOverlay(
+        private class FadeRgbMatrix(
             private val segmentDurationUs: Long,
             private val fadeDurationUs: Long,
             private val type: TransitionType,
-        ) : BitmapOverlay() {
-            private val overlayBitmap =
-                Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
-                    eraseColor(if (type == TransitionType.FADE_BLACK) Color.BLACK else Color.WHITE)
-                }
+        ) : RgbMatrix {
             private var startUs = -1L
 
-            override fun getBitmap(presentationTimeUs: Long): Bitmap = overlayBitmap
-
-            override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
+            override fun getMatrix(presentationTimeUs: Long, useHdr: Boolean): FloatArray {
                 if (startUs < 0L) startUs = presentationTimeUs
                 val elapsed = presentationTimeUs - startUs
                 val alpha = maxOf(headAlpha(elapsed), tailAlpha(elapsed)).coerceIn(0f, 1f)
-                return OverlaySettings.Builder().setAlphaScale(alpha).build()
+                val progress = 1f - alpha
+                return if (type == TransitionType.FADE_WHITE || type == TransitionType.FLASH) {
+                    // Fade to white: scale channels toward 0 and add alpha as constant offset
+                    floatArrayOf(
+                        progress, 0f,      0f,      0f,
+                        0f,      progress, 0f,      0f,
+                        0f,      0f,      progress, 0f,
+                        alpha,   alpha,   alpha,   1f,
+                    )
+                } else {
+                    // Fade to black: scale all channels toward 0
+                    floatArrayOf(
+                        progress, 0f,      0f,      0f,
+                        0f,      progress, 0f,      0f,
+                        0f,      0f,      progress, 0f,
+                        0f,      0f,      0f,      1f,
+                    )
+                }
             }
 
             private fun headAlpha(elapsed: Long): Float {
                 if (elapsed >= fadeDurationUs) return 0f
                 val t = elapsed.toFloat() / fadeDurationUs
-                return if (type == TransitionType.FLASH) {
-                    // Quadratic decay: instant spike at cut, rapid fall
-                    (1f - t) * (1f - t)
-                } else {
-                    // Linear: 1 → 0 over fadeDuration
-                    1f - t
-                }
+                // Flash: quadratic decay (instant spike, rapid fall); others: linear 1→0
+                return if (type == TransitionType.FLASH) (1f - t) * (1f - t) else 1f - t
             }
 
             private fun tailAlpha(elapsed: Long): Float {
@@ -457,7 +428,6 @@ class RenderManager
                 return if (type == TransitionType.FLASH || segmentDurationUs <= 0L || elapsed <= tailStart) {
                     0f
                 } else {
-                    // Linear: 0 → 1 over fadeDuration
                     (elapsed - tailStart).toFloat() / fadeDurationUs
                 }
             }
