@@ -420,7 +420,8 @@ class RenderManager
             }
 
             companion object {
-                private const val MAX_ALPHA = 0.75f
+                // Keep fade semi-transparent so the underlying image stays visible
+                private const val MAX_ALPHA = 0.5f
             }
 
             private fun tailAlpha(elapsed: Long): Float {
