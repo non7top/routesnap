@@ -25,6 +25,7 @@ import androidx.media3.transformer.Transformer
 import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TemplatePreset
+import com.routesnap.app.domain.model.TransitionType
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -135,6 +136,12 @@ class RenderManager
             _renderState.value = RenderState.Idle
         }
 
+        private fun effectiveTransition(segment: TripSegment, template: TemplatePreset): Pair<TransitionType, Long> {
+            val type = segment.transitionType ?: template.defaultTransitionType
+            val durationMs = segment.transitionDurationMs ?: template.defaultTransitionDurationMs
+            return Pair(type, durationMs)
+        }
+
         private fun buildComposition(trip: TripManifest): Composition {
             val cinematic = trip.template == TemplatePreset.CINEMATIC
             var photoIndex = 0
@@ -142,9 +149,12 @@ class RenderManager
                 trip.segments.mapNotNull { segment ->
                     val uri = segment.uri ?: return@mapNotNull null
                     android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
+                    val (transitionType, transitionDurationMs) = effectiveTransition(segment, trip.template)
                     when (segment.type) {
-                        SegmentType.PHOTO -> buildPhotoSegment(uri, segment.durationMs, cinematic, photoIndex).also { photoIndex++ }
-                        SegmentType.VIDEO -> buildVideoSegment(uri)
+                        SegmentType.PHOTO -> buildPhotoSegment(
+                            uri, segment.durationMs, cinematic, photoIndex, transitionType, transitionDurationMs,
+                        ).also { photoIndex++ }
+                        SegmentType.VIDEO -> buildVideoSegment(uri, transitionType, transitionDurationMs)
                         SegmentType.MAP_TRAVEL -> buildMapTravelSegment(segment, trip)
                     }
                 }
@@ -159,24 +169,31 @@ class RenderManager
             durationMs: Long,
             cinematic: Boolean,
             photoIndex: Int,
+            transitionType: TransitionType,
+            transitionDurationMs: Long,
         ): EditedMediaItem {
             val duration = if (durationMs > 0) durationMs else 5000L
-            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms cinematic: $cinematic")
+            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms cinematic: $cinematic transition: $transitionType ${transitionDurationMs}ms")
             val mediaItem =
                 MediaItem
                     .Builder()
                     .setUri(uri)
                     .setImageDurationMs(duration)
                     .build()
-            val videoEffects =
+            val videoEffects = buildList {
+                add(portraitPresentation())
                 if (cinematic) {
                     // Presentation first: letterbox into portrait frame.
                     // Ken Burns second: zooms the portrait frame, growing landscape
                     // image outward into the black bar space (pinch-zoom behaviour).
-                    listOf(portraitPresentation(), kenBurnsZoom(duration, photoIndex))
-                } else {
-                    listOf(portraitPresentation())
+                    add(kenBurnsZoom(duration, photoIndex))
                 }
+                if (transitionType != TransitionType.NONE) {
+                    val durationUs = duration * 1000L
+                    val fadeDurationUs = transitionDurationMs * 1000L
+                    add(OverlayEffect(listOf(TransitionOverlay(durationUs, fadeDurationUs, transitionType))))
+                }
+            }
             return EditedMediaItem
                 .Builder(mediaItem)
                 .setFrameRate(30)
@@ -184,12 +201,25 @@ class RenderManager
                 .build()
         }
 
-        private fun buildVideoSegment(uri: Uri): EditedMediaItem =
-            EditedMediaItem
+        private fun buildVideoSegment(
+            uri: Uri,
+            transitionType: TransitionType,
+            transitionDurationMs: Long,
+        ): EditedMediaItem {
+            val videoEffects = buildList {
+                add(portraitPresentation())
+                // Video duration is unknown ahead of time — apply head-only fade (no tail).
+                if (transitionType != TransitionType.NONE) {
+                    val fadeDurationUs = transitionDurationMs * 1000L
+                    add(OverlayEffect(listOf(TransitionOverlay(-1L, fadeDurationUs, transitionType))))
+                }
+            }
+            return EditedMediaItem
                 .Builder(MediaItem.fromUri(uri))
                 .setFrameRate(30)
-                .setEffects(Effects(emptyList(), listOf(portraitPresentation())))
+                .setEffects(Effects(emptyList(), videoEffects))
                 .build()
+        }
 
         private fun buildMapTravelSegment(
             segment: TripSegment,
@@ -367,6 +397,55 @@ class RenderManager
 
             companion object {
                 private const val FADE_RATIO = 0.3f
+            }
+        }
+
+        /**
+         * Applies a transition at the head and/or tail of a segment.
+         *
+         * @param segmentDurationUs total segment duration; pass -1 for unknown (video) — tail fade is skipped
+         * @param fadeDurationUs duration of each fade ramp in microseconds
+         * @param type FADE_BLACK, FADE_WHITE, or FLASH; NONE is never passed here
+         */
+        private class TransitionOverlay(
+            private val segmentDurationUs: Long,
+            private val fadeDurationUs: Long,
+            private val type: TransitionType,
+        ) : BitmapOverlay() {
+            private val overlayBitmap =
+                Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
+                    eraseColor(if (type == TransitionType.FADE_BLACK) Color.BLACK else Color.WHITE)
+                }
+            private var startUs = -1L
+
+            override fun getBitmap(presentationTimeUs: Long): Bitmap = overlayBitmap
+
+            override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
+                if (startUs < 0L) startUs = presentationTimeUs
+                val elapsed = presentationTimeUs - startUs
+                val alpha = maxOf(headAlpha(elapsed), tailAlpha(elapsed)).coerceIn(0f, 1f)
+                return OverlaySettings.Builder().setAlphaScale(alpha).build()
+            }
+
+            private fun headAlpha(elapsed: Long): Float {
+                if (elapsed >= fadeDurationUs) return 0f
+                val t = elapsed.toFloat() / fadeDurationUs
+                return if (type == TransitionType.FLASH) {
+                    // Quadratic decay: instant spike at cut, rapid fall
+                    (1f - t) * (1f - t)
+                } else {
+                    // Linear: 1 → 0 over fadeDuration
+                    1f - t
+                }
+            }
+
+            private fun tailAlpha(elapsed: Long): Float {
+                if (type == TransitionType.FLASH) return 0f
+                if (segmentDurationUs <= 0L) return 0f
+                val tailStart = segmentDurationUs - fadeDurationUs
+                if (elapsed <= tailStart) return 0f
+                // Linear: 0 → 1 over fadeDuration
+                return (elapsed - tailStart).toFloat() / fadeDurationUs
             }
         }
 

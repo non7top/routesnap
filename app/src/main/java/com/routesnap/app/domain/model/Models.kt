@@ -43,6 +43,13 @@ data class LatLng(
 }
 
 /**
+ * Transition effect applied at the boundary between segments.
+ * NONE = hard cut, FADE_BLACK / FADE_WHITE = dip through colour,
+ * FLASH = white spike that decays rapidly at the segment head.
+ */
+enum class TransitionType { NONE, FADE_BLACK, FADE_WHITE, FLASH }
+
+/**
  * Represents a single segment in the trip video timeline
  */
 data class TripSegment(
@@ -58,6 +65,8 @@ data class TripSegment(
     val clusterId: String?,
     val timestamp: Long? = null,
     val order: Int = 0,
+    val transitionType: TransitionType? = null,
+    val transitionDurationMs: Long? = null,
 )
 
 /**
@@ -96,10 +105,12 @@ enum class TemplatePreset(
     val videoHighlightDurationMs: Long,
     val displayName: String,
     val description: String,
+    val defaultTransitionType: TransitionType,
+    val defaultTransitionDurationMs: Long,
 ) {
-    FAST_PACED(2000, 3000, "Fast-Paced", "Quick cuts, energetic"),
-    BALANCED(4000, 5000, "Balanced", "Standard pacing"),
-    CINEMATIC(5000, 8000, "Cinematic", "Slow, dramatic with Ken Burns"),
+    FAST_PACED(2000, 3000, "Fast-Paced", "Quick cuts, energetic", TransitionType.FLASH, 100L),
+    BALANCED(4000, 5000, "Balanced", "Standard pacing", TransitionType.FADE_BLACK, 250L),
+    CINEMATIC(5000, 8000, "Cinematic", "Slow, dramatic with Ken Burns", TransitionType.FADE_BLACK, 400L),
 }
 
 /**
