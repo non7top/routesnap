@@ -136,11 +136,19 @@ class RenderManager
             _renderState.value = RenderState.Idle
         }
 
-        private fun effectiveTransition(segment: TripSegment, template: TemplatePreset): Pair<TransitionType, Long> {
-            val type = segment.transitionType ?: template.defaultTransitionType
-            val durationMs = segment.transitionDurationMs ?: template.defaultTransitionDurationMs
-            return Pair(type, durationMs)
-        }
+        private data class TransitionParams(
+            val type: TransitionType,
+            val durationMs: Long,
+        )
+
+        private fun effectiveTransition(
+            segment: TripSegment,
+            template: TemplatePreset,
+        ): TransitionParams =
+            TransitionParams(
+                type = segment.transitionType ?: template.defaultTransitionType,
+                durationMs = segment.transitionDurationMs ?: template.defaultTransitionDurationMs,
+            )
 
         private fun buildComposition(trip: TripManifest): Composition {
             val cinematic = trip.template == TemplatePreset.CINEMATIC
@@ -149,13 +157,20 @@ class RenderManager
                 trip.segments.mapNotNull { segment ->
                     val uri = segment.uri ?: return@mapNotNull null
                     android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
-                    val (transitionType, transitionDurationMs) = effectiveTransition(segment, trip.template)
+                    val transition = effectiveTransition(segment, trip.template)
                     when (segment.type) {
-                        SegmentType.PHOTO -> buildPhotoSegment(
-                            uri, segment.durationMs, cinematic, photoIndex, transitionType, transitionDurationMs,
-                        ).also { photoIndex++ }
-                        SegmentType.VIDEO -> buildVideoSegment(uri, transitionType, transitionDurationMs)
-                        SegmentType.MAP_TRAVEL -> buildMapTravelSegment(segment, trip)
+                        SegmentType.PHOTO -> {
+                            buildPhotoSegment(uri, segment.durationMs, cinematic, photoIndex, transition)
+                                .also { photoIndex++ }
+                        }
+
+                        SegmentType.VIDEO -> {
+                            buildVideoSegment(uri, transition)
+                        }
+
+                        SegmentType.MAP_TRAVEL -> {
+                            buildMapTravelSegment(segment, trip)
+                        }
                     }
                 }
             val sequence = EditedMediaItemSequence(editedMediaItems)
@@ -169,31 +184,31 @@ class RenderManager
             durationMs: Long,
             cinematic: Boolean,
             photoIndex: Int,
-            transitionType: TransitionType,
-            transitionDurationMs: Long,
+            transition: TransitionParams,
         ): EditedMediaItem {
             val duration = if (durationMs > 0) durationMs else 5000L
-            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms cinematic: $cinematic transition: $transitionType ${transitionDurationMs}ms")
+            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms cinematic: $cinematic transition: ${transition.type} ${transition.durationMs}ms")
             val mediaItem =
                 MediaItem
                     .Builder()
                     .setUri(uri)
                     .setImageDurationMs(duration)
                     .build()
-            val videoEffects = buildList {
-                add(portraitPresentation())
-                if (cinematic) {
-                    // Presentation first: letterbox into portrait frame.
-                    // Ken Burns second: zooms the portrait frame, growing landscape
-                    // image outward into the black bar space (pinch-zoom behaviour).
-                    add(kenBurnsZoom(duration, photoIndex))
+            val videoEffects =
+                buildList {
+                    add(portraitPresentation())
+                    if (cinematic) {
+                        // Presentation first: letterbox into portrait frame.
+                        // Ken Burns second: zooms the portrait frame, growing landscape
+                        // image outward into the black bar space (pinch-zoom behaviour).
+                        add(kenBurnsZoom(duration, photoIndex))
+                    }
+                    if (transition.type != TransitionType.NONE) {
+                        val durationUs = duration * 1000L
+                        val fadeDurationUs = transition.durationMs * 1000L
+                        add(OverlayEffect(listOf(TransitionOverlay(durationUs, fadeDurationUs, transition.type))))
+                    }
                 }
-                if (transitionType != TransitionType.NONE) {
-                    val durationUs = duration * 1000L
-                    val fadeDurationUs = transitionDurationMs * 1000L
-                    add(OverlayEffect(listOf(TransitionOverlay(durationUs, fadeDurationUs, transitionType))))
-                }
-            }
             return EditedMediaItem
                 .Builder(mediaItem)
                 .setFrameRate(30)
@@ -203,17 +218,17 @@ class RenderManager
 
         private fun buildVideoSegment(
             uri: Uri,
-            transitionType: TransitionType,
-            transitionDurationMs: Long,
+            transition: TransitionParams,
         ): EditedMediaItem {
-            val videoEffects = buildList {
-                add(portraitPresentation())
-                // Video duration is unknown ahead of time — apply head-only fade (no tail).
-                if (transitionType != TransitionType.NONE) {
-                    val fadeDurationUs = transitionDurationMs * 1000L
-                    add(OverlayEffect(listOf(TransitionOverlay(-1L, fadeDurationUs, transitionType))))
+            val videoEffects =
+                buildList {
+                    add(portraitPresentation())
+                    // Video duration is unknown ahead of time — apply head-only fade (no tail).
+                    if (transition.type != TransitionType.NONE) {
+                        val fadeDurationUs = transition.durationMs * 1000L
+                        add(OverlayEffect(listOf(TransitionOverlay(-1L, fadeDurationUs, transition.type))))
+                    }
                 }
-            }
             return EditedMediaItem
                 .Builder(MediaItem.fromUri(uri))
                 .setFrameRate(30)
@@ -440,12 +455,13 @@ class RenderManager
             }
 
             private fun tailAlpha(elapsed: Long): Float {
-                if (type == TransitionType.FLASH) return 0f
-                if (segmentDurationUs <= 0L) return 0f
                 val tailStart = segmentDurationUs - fadeDurationUs
-                if (elapsed <= tailStart) return 0f
-                // Linear: 0 → 1 over fadeDuration
-                return (elapsed - tailStart).toFloat() / fadeDurationUs
+                return if (type == TransitionType.FLASH || segmentDurationUs <= 0L || elapsed <= tailStart) {
+                    0f
+                } else {
+                    // Linear: 0 → 1 over fadeDuration
+                    (elapsed - tailStart).toFloat() / fadeDurationUs
+                }
             }
         }
 
