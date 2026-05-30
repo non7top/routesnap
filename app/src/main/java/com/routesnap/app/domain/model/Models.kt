@@ -115,9 +115,9 @@ enum class TemplatePreset(
     val defaultTransitionType: TransitionType,
     val defaultTransitionDurationMs: Long,
 ) {
-    FAST_PACED(2000, 3000, "Fast-Paced", "Quick cuts, energetic", TransitionType.FLASH, 100L),
-    BALANCED(4000, 5000, "Balanced", "Standard pacing", TransitionType.FADE_BLACK, 250L),
-    CINEMATIC(5000, 8000, "Cinematic", "Slow, dramatic with Ken Burns", TransitionType.FADE_BLACK, 400L),
+    FAST_PACED(2000, 3000, "Fast-Paced", "Quick cuts, energetic", TransitionType.NONE, 100L),
+    BALANCED(4000, 5000, "Balanced", "Standard pacing", TransitionType.NONE, 250L),
+    CINEMATIC(5000, 8000, "Cinematic", "Slow, dramatic with Ken Burns", TransitionType.NONE, 400L),
 }
 
 /**

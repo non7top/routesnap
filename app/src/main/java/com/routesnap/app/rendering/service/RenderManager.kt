@@ -194,7 +194,8 @@ class RenderManager
                 buildList {
                     add(portraitPresentation())
                     if (transition.type != TransitionType.NONE) {
-                        add(FadeRgbMatrix(duration * 1000L, transition.durationMs * 1000L, transition.type))
+                        // Tail-only fade: each photo fades out at its end; no white-screen at start
+                        add(FadeRgbMatrix(duration * 1000L, 0L, transition.durationMs * 1000L, transition.type))
                     }
                     add(kenBurnsZoom(duration, photoIndex))
                 }
@@ -214,7 +215,7 @@ class RenderManager
                     add(portraitPresentation())
                     // Video duration unknown — pass -1 so tail fade is skipped.
                     if (transition.type != TransitionType.NONE) {
-                        add(FadeRgbMatrix(-1L, transition.durationMs * 1000L, transition.type))
+                        add(FadeRgbMatrix(-1L, 0L, 0L, transition.type))
                     }
                 }
             return EditedMediaItem
@@ -259,7 +260,8 @@ class RenderManager
                         emptyList(),
                         listOf(
                             portraitPresentation(),
-                            FadeRgbMatrix(durationUs, fadeDurationUs, TransitionType.FADE_BLACK),
+                            // Title cards fade in AND out (both head and tail)
+                            FadeRgbMatrix(durationUs, fadeDurationUs, fadeDurationUs, TransitionType.FADE_BLACK),
                         ),
                     ),
                 ).build()
@@ -381,82 +383,41 @@ class RenderManager
          * making it work correctly for both video and image (setImageDurationMs) segments,
          * unlike BitmapOverlay.getOverlaySettings() which is not called per-frame on images.
          *
-         * @param segmentDurationUs total segment duration; -1 = unknown (video) — tail is skipped
-         * @param fadeDurationUs duration of each fade ramp in microseconds
+         * @param segmentDurationUs total segment duration; -1 = unknown — tail is skipped
+         * @param headFadeDurationUs ramp at segment start; 0 = no head fade
+         * @param tailFadeDurationUs ramp at segment end; 0 or segmentDurationUs<=0 = no tail fade
          * @param type FADE_BLACK, FADE_WHITE, or FLASH
          */
         private class FadeRgbMatrix(
             private val segmentDurationUs: Long,
-            private val fadeDurationUs: Long,
+            private val headFadeDurationUs: Long,
+            private val tailFadeDurationUs: Long,
             private val type: TransitionType,
         ) : RgbMatrix {
             private var startUs = -1L
 
-            override fun getMatrix(
-                presentationTimeUs: Long,
-                useHdr: Boolean,
-            ): FloatArray {
+            override fun getMatrix(presentationTimeUs: Long, useHdr: Boolean): FloatArray {
                 if (startUs < 0L) startUs = presentationTimeUs
                 val elapsed = presentationTimeUs - startUs
                 val alpha = maxOf(headAlpha(elapsed), tailAlpha(elapsed)).coerceIn(0f, 1f)
-                val progress = 1f - alpha
+                val p = 1f - alpha
                 return if (type == TransitionType.FADE_WHITE || type == TransitionType.FLASH) {
-                    // Fade to white: scale channels toward 0 and add alpha as constant offset
-                    floatArrayOf(
-                        progress,
-                        0f,
-                        0f,
-                        0f,
-                        0f,
-                        progress,
-                        0f,
-                        0f,
-                        0f,
-                        0f,
-                        progress,
-                        0f,
-                        alpha,
-                        alpha,
-                        alpha,
-                        1f,
-                    )
+                    floatArrayOf(p, 0f, 0f, 0f, 0f, p, 0f, 0f, 0f, 0f, p, 0f, alpha, alpha, alpha, 1f)
                 } else {
-                    // Fade to black: scale all channels toward 0
-                    floatArrayOf(
-                        progress,
-                        0f,
-                        0f,
-                        0f,
-                        0f,
-                        progress,
-                        0f,
-                        0f,
-                        0f,
-                        0f,
-                        progress,
-                        0f,
-                        0f,
-                        0f,
-                        0f,
-                        1f,
-                    )
+                    floatArrayOf(p, 0f, 0f, 0f, 0f, p, 0f, 0f, 0f, 0f, p, 0f, 0f, 0f, 0f, 1f)
                 }
             }
 
             private fun headAlpha(elapsed: Long): Float {
-                if (elapsed >= fadeDurationUs) return 0f
-                val t = elapsed.toFloat() / fadeDurationUs
-                // Flash: quadratic decay (instant spike, rapid fall); others: linear 1→0
+                if (headFadeDurationUs <= 0L || elapsed >= headFadeDurationUs) return 0f
+                val t = elapsed.toFloat() / headFadeDurationUs
                 return if (type == TransitionType.FLASH) (1f - t) * (1f - t) else 1f - t
             }
 
             private fun tailAlpha(elapsed: Long): Float {
-                val tailStart = segmentDurationUs - fadeDurationUs
-                return if (type == TransitionType.FLASH || segmentDurationUs <= 0L || elapsed <= tailStart) {
-                    0f
-                } else {
-                    (elapsed - tailStart).toFloat() / fadeDurationUs
-                }
+                if (tailFadeDurationUs <= 0L || segmentDurationUs <= 0L) return 0f
+                val tailStart = segmentDurationUs - tailFadeDurationUs
+                return if (elapsed <= tailStart) 0f else (elapsed - tailStart).toFloat() / tailFadeDurationUs
             }
         }
 
