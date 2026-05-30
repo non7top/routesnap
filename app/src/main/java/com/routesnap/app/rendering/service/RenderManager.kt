@@ -194,8 +194,13 @@ class RenderManager
                 buildList {
                     add(portraitPresentation())
                     if (transition.type != TransitionType.NONE) {
-                        // Tail-only fade: each photo fades out at its end; no white-screen at start
-                        add(FadeRgbMatrix(duration * 1000L, 0L, transition.durationMs * 1000L, transition.type))
+                        val durationUs = duration * 1000L
+                        val fadeDurationUs = transition.durationMs * 1000L
+                        // Tail fade on all photos; head fade skipped on the first photo so
+                        // the video starts clean. Max alpha 0.75 keeps the transition semi-
+                        // transparent (dissolve feel) rather than cutting to a solid colour.
+                        val headUs = if (photoIndex == 0) 0L else fadeDurationUs
+                        add(FadeRgbMatrix(durationUs, headUs, fadeDurationUs, transition.type))
                     }
                     add(kenBurnsZoom(duration, photoIndex))
                 }
@@ -399,7 +404,7 @@ class RenderManager
             override fun getMatrix(presentationTimeUs: Long, useHdr: Boolean): FloatArray {
                 if (startUs < 0L) startUs = presentationTimeUs
                 val elapsed = presentationTimeUs - startUs
-                val alpha = maxOf(headAlpha(elapsed), tailAlpha(elapsed)).coerceIn(0f, 1f)
+                val alpha = maxOf(headAlpha(elapsed), tailAlpha(elapsed)).coerceIn(0f, MAX_ALPHA)
                 val p = 1f - alpha
                 return if (type == TransitionType.FADE_WHITE || type == TransitionType.FLASH) {
                     floatArrayOf(p, 0f, 0f, 0f, 0f, p, 0f, 0f, 0f, 0f, p, 0f, alpha, alpha, alpha, 1f)
@@ -412,6 +417,10 @@ class RenderManager
                 if (headFadeDurationUs <= 0L || elapsed >= headFadeDurationUs) return 0f
                 val t = elapsed.toFloat() / headFadeDurationUs
                 return if (type == TransitionType.FLASH) (1f - t) * (1f - t) else 1f - t
+            }
+
+            companion object {
+                private const val MAX_ALPHA = 0.75f
             }
 
             private fun tailAlpha(elapsed: Long): Float {
