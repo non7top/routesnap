@@ -251,6 +251,15 @@ class ClusteringAlgorithm(
                         config.photoDurationMs
                     }
 
+                val photoAspectRatio =
+                    if (segmentType == SegmentType.PHOTO &&
+                        metadata.width != null && metadata.height != null && metadata.height > 0
+                    ) {
+                        metadata.width.toFloat() / metadata.height.toFloat()
+                    } else {
+                        null
+                    }
+
                 segments.add(
                     TripSegment(
                         type = segmentType,
@@ -261,6 +270,7 @@ class ClusteringAlgorithm(
                         clusterId = clusterId,
                         timestamp = metadata.timestamp,
                         order = order++,
+                        photoAspectRatio = photoAspectRatio,
                     ),
                 )
             }

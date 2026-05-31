@@ -57,6 +57,17 @@ enum class TransitionType(
 }
 
 /**
+ * Normalized rectangle (0–1 coordinates) used as the Ken Burns end frame.
+ * Starting frame is always the full photo.
+ */
+data class ZoomRect(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float,
+)
+
+/**
  * Represents a single segment in the trip video timeline
  */
 data class TripSegment(
@@ -74,6 +85,9 @@ data class TripSegment(
     val order: Int = 0,
     val transitionType: TransitionType? = null,
     val transitionDurationMs: Long? = null,
+    val photoAspectRatio: Float? = null,
+    val zoomRect: ZoomRect? = null,
+    val isReviewed: Boolean = false,
 )
 
 /**
