@@ -295,7 +295,6 @@ class RenderManager
 
         private fun portraitPresentation(): Presentation = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
 
-
         /**
          * Horizontal pan for landscape photos. Scales so height fills the portrait frame,
          * then slides left↔right across the overflowing width. Direction alternates by index.
@@ -430,7 +429,6 @@ class RenderManager
             transformer = null
             _renderState.value = RenderState.Cancelled
         }
-
 
         /**
          * RgbMatrix-based fade transition. getMatrix() is called per-frame by Media3,
