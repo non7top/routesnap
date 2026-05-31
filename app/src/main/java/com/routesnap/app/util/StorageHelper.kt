@@ -128,7 +128,6 @@ class StorageHelper(
 
     companion object {
         private const val TAG = "StorageHelper"
-        private const val APP_DIR = "RouteSnap"
         private const val OUTPUT_DIR = "output"
     }
 }
