@@ -94,15 +94,17 @@ fun ProjectListScreen(
         ) { padding ->
             if (trips.isEmpty()) {
                 EmptyState(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(padding),
                 )
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(padding),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -145,17 +147,21 @@ private fun TripCard(
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val thumbnail = trip.segments.firstOrNull {
-        it.type == SegmentType.PHOTO && it.uri != null
-    }?.uri
+    val thumbnail =
+        trip.segments
+            .firstOrNull {
+                it.type == SegmentType.PHOTO && it.uri != null
+            }?.uri
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onDelete),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = onDelete),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -163,10 +169,11 @@ private fun TripCard(
         ) {
             // Thumbnail
             Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surface),
+                modifier =
+                    Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center,
             ) {
                 if (thumbnail != null) {
@@ -195,8 +202,9 @@ private fun TripCard(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-                        .format(Date(trip.createdAt)),
+                    text =
+                        SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+                            .format(Date(trip.createdAt)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -210,18 +218,22 @@ private fun TripCard(
 
             // Status icon
             when (trip.status) {
-                RenderStatus.COMPLETED ->
+                RenderStatus.COMPLETED -> {
                     Icon(
                         Icons.Default.CheckCircle,
                         contentDescription = "Rendered",
                         tint = MaterialTheme.colorScheme.primary,
                     )
-                RenderStatus.RENDERING ->
+                }
+
+                RenderStatus.RENDERING -> {
                     Icon(
                         Icons.Default.PlayArrow,
                         contentDescription = "Rendering",
                         tint = MaterialTheme.colorScheme.secondary,
                     )
+                }
+
                 else -> {}
             }
 

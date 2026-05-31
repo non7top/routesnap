@@ -4,17 +4,17 @@ import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.SavedStateHandle
 import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -80,14 +80,16 @@ class PickerViewModel
         private fun loadExistingTrip(tripId: String) {
             viewModelScope.launch {
                 val trip = tripRepository.getTripById(tripId) ?: return@launch
-                val photoUris = trip.segments
-                    .filter { it.type == SegmentType.PHOTO && it.uri != null }
-                    .map { it.uri!! }
+                val photoUris =
+                    trip.segments
+                        .filter { it.type == SegmentType.PHOTO && it.uri != null }
+                        .map { it.uri!! }
                 originalUris = photoUris.map { it.toString() }.toSet()
-                _uiState.value = _uiState.value.copy(
-                    tripName = trip.name,
-                    selectedUris = photoUris,
-                )
+                _uiState.value =
+                    _uiState.value.copy(
+                        tripName = trip.name,
+                        selectedUris = photoUris,
+                    )
                 extractMetadataForSelected()
             }
         }

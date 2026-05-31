@@ -4,7 +4,6 @@ import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import java.io.File
 import com.routesnap.app.data.exif.MediaMetadata
 import com.routesnap.app.data.exif.MetadataExtractor
 import com.routesnap.app.data.local.TripManifestDao
@@ -21,6 +20,7 @@ import com.squareup.moshi.FromJson
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.ToJson
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -127,22 +127,27 @@ class TripRepository(
         uris: List<Uri>,
     ): TripManifest {
         val rawSegments = processSelectedMedia(uris)
-        val persistedSegments = withContext(Dispatchers.IO) {
-            copyPhotosToPrivateStorage(tripId, rawSegments)
-        }
+        val persistedSegments =
+            withContext(Dispatchers.IO) {
+                copyPhotosToPrivateStorage(tripId, rawSegments)
+            }
         val clusters = clusteringAlgorithm.createClustersFromSegments(persistedSegments)
-        val trip = TripManifest(
-            id = tripId,
-            name = name,
-            segments = persistedSegments,
-            clusters = clusters,
-            totalDurationMs = persistedSegments.sumOf { it.durationMs },
-        )
+        val trip =
+            TripManifest(
+                id = tripId,
+                name = name,
+                segments = persistedSegments,
+                clusters = clusters,
+                totalDurationMs = persistedSegments.sumOf { it.durationMs },
+            )
         saveTrip(trip)
         return trip
     }
 
-    suspend fun updateTripName(tripId: String, name: String) {
+    suspend fun updateTripName(
+        tripId: String,
+        name: String,
+    ) {
         val trip = getTripById(tripId) ?: return
         saveTrip(trip.copy(name = name))
     }
@@ -208,10 +213,14 @@ class TripRepository(
         val rawSegments = processSelectedMedia(uris)
 
         // Reserve a trip ID up-front so we know the destination directory.
-        val tripId = java.util.UUID.randomUUID().toString()
-        val persistedSegments = withContext(Dispatchers.IO) {
-            copyPhotosToPrivateStorage(tripId, rawSegments)
-        }
+        val tripId =
+            java.util.UUID
+                .randomUUID()
+                .toString()
+        val persistedSegments =
+            withContext(Dispatchers.IO) {
+                copyPhotosToPrivateStorage(tripId, rawSegments)
+            }
 
         val clusters = clusteringAlgorithm.createClustersFromSegments(persistedSegments)
         val trip =
@@ -255,8 +264,7 @@ class TripRepository(
         }
     }
 
-    private fun projectDir(tripId: String): File =
-        File(context.filesDir, "projects/$tripId")
+    private fun projectDir(tripId: String): File = File(context.filesDir, "projects/$tripId")
 
     companion object {
         private const val TAG = "TripRepository"
