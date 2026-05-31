@@ -86,7 +86,8 @@ data class TripSegment(
     val transitionType: TransitionType? = null,
     val transitionDurationMs: Long? = null,
     val photoAspectRatio: Float? = null,
-    val zoomRect: ZoomRect? = null,
+    val startZoomRect: ZoomRect? = null,
+    val endZoomRect: ZoomRect? = null,
     val isReviewed: Boolean = false,
 )
 

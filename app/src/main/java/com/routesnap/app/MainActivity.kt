@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.routesnap.app.ui.picker.PhotoPickerScreen
 import com.routesnap.app.ui.render.RenderScreen
+import com.routesnap.app.ui.review.PhotoReviewScreen
 import com.routesnap.app.ui.share.ShareScreen
 import com.routesnap.app.ui.style.StyleScreen
 import com.routesnap.app.ui.theme.RouteSnapTheme
@@ -79,6 +80,21 @@ fun RouteSnapNavGraph(
                 tripId = tripId,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToStyle = { navController.navigate("style/$tripId") },
+                onNavigateToPhotoReview = { segmentId ->
+                    navController.navigate("review/$tripId/$segmentId")
+                },
+            )
+        }
+
+        composable(
+            route = "review/{tripId}/{segmentId}",
+            arguments = listOf(
+                navArgument("tripId") { type = NavType.StringType },
+                navArgument("segmentId") { type = NavType.StringType },
+            ),
+        ) {
+            PhotoReviewScreen(
+                onNavigateBack = { navController.popBackStack() },
             )
         }
 

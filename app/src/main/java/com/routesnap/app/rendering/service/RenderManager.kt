@@ -185,9 +185,9 @@ class RenderManager
             val uri = requireNotNull(segment.uri)
             val baseDuration = if (segment.durationMs > 0) segment.durationMs else 5000L
             val duration =
-                if (segment.zoomRect != null) {
-                    val rectW = segment.zoomRect.right - segment.zoomRect.left
-                    val rectH = segment.zoomRect.bottom - segment.zoomRect.top
+                if (segment.endZoomRect != null) {
+                    val rectW = segment.endZoomRect.right - segment.endZoomRect.left
+                    val rectH = segment.endZoomRect.bottom - segment.endZoomRect.top
                     val area = rectW * rectH
                     if (area > 0f) (baseDuration / area).toLong().coerceAtMost(12000L) else baseDuration
                 } else {
@@ -211,8 +211,9 @@ class RenderManager
                         add(FadeRgbMatrix(durationUs, headUs, fadeDurationUs, transition.type))
                     }
                     when {
-                        segment.zoomRect != null -> {
-                            add(kenBurnsZoomToRect(segment.zoomRect, duration))
+                        segment.endZoomRect != null -> {
+                            val start = segment.startZoomRect ?: ZoomRect(0f, 0f, 1f, 1f)
+                            add(kenBurnsZoomToRect(start, segment.endZoomRect, duration))
                         }
 
                         isLandscape -> {
@@ -342,30 +343,33 @@ class RenderManager
         }
 
         /**
-         * Ken Burns zoom from the full photo to a user-defined rect.
-         * zoomRect uses normalized 0–1 coordinates; scale is capped at 8× for safety.
+         * Ken Burns interpolation from startRect to endRect.
+         * Rects use normalized 0–1 coordinates over the photo; scale capped at 8×.
          */
         private fun kenBurnsZoomToRect(
-            zoomRect: ZoomRect,
+            startRect: ZoomRect,
+            endRect: ZoomRect,
             durationMs: Long,
         ): MatrixTransformation {
             val durationUs = durationMs * 1000L
             var startUs = -1L
-            val rectW = (zoomRect.right - zoomRect.left).coerceAtLeast(0.05f)
-            val rectH = (zoomRect.bottom - zoomRect.top).coerceAtLeast(0.05f)
-            val endScale = (1f / minOf(rectW, rectH)).coerceIn(1f, 8f)
-            // Rect center in NDC space (-1..1), y-axis pointing up
-            val cx = (zoomRect.left + zoomRect.right) - 1f
-            val cy = 1f - (zoomRect.top + zoomRect.bottom)
             return MatrixTransformation { presentationTimeUs ->
                 if (startUs < 0L) startUs = presentationTimeUs
                 val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-                val scale = 1f + (endScale - 1f) * progress
-                val tx = -cx * endScale * progress
-                val ty = -cy * endScale * progress
+                val rect = ZoomRect(
+                    left = startRect.left + (endRect.left - startRect.left) * progress,
+                    top = startRect.top + (endRect.top - startRect.top) * progress,
+                    right = startRect.right + (endRect.right - startRect.right) * progress,
+                    bottom = startRect.bottom + (endRect.bottom - startRect.bottom) * progress,
+                )
+                val rectW = (rect.right - rect.left).coerceAtLeast(0.05f)
+                val rectH = (rect.bottom - rect.top).coerceAtLeast(0.05f)
+                val scale = (1f / minOf(rectW, rectH)).coerceIn(1f, 8f)
+                val cx = (rect.left + rect.right) - 1f
+                val cy = 1f - (rect.top + rect.bottom)
                 android.graphics.Matrix().apply {
                     setScale(scale, scale)
-                    postTranslate(tx, ty)
+                    postTranslate(-cx * scale, -cy * scale)
                 }
             }
         }

@@ -84,6 +84,7 @@ fun TimelineScreen(
     tripId: String?,
     onNavigateBack: () -> Unit,
     onNavigateToStyle: () -> Unit,
+    onNavigateToPhotoReview: (segmentId: String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: TimelineViewModel = hiltViewModel(),
 ) {
@@ -165,6 +166,11 @@ private fun TimelineContent(
                     index = index,
                     locationName = uiState.segmentLocations[segment.id],
                     onRemove = { onRemoveSegment(segment) },
+                    onPhotoClick = if (segment.type == SegmentType.PHOTO) {
+                        { onNavigateToPhotoReview(segment.id) }
+                    } else {
+                        null
+                    },
                 )
             }
         } else {
@@ -185,6 +191,11 @@ private fun TimelineContent(
                         index = segmentIndex,
                         locationName = uiState.segmentLocations[segment.id],
                         onRemove = { onRemoveSegment(segment) },
+                        onPhotoClick = if (segment.type == SegmentType.PHOTO) {
+                            { onNavigateToPhotoReview(segment.id) }
+                        } else {
+                            null
+                        },
                     )
                 }
             }
@@ -240,9 +251,12 @@ private fun TimelineItem(
     index: Int,
     locationName: String?,
     onRemove: () -> Unit,
+    onPhotoClick: (() -> Unit)? = null,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onPhotoClick != null) Modifier.clickable(onClick = onPhotoClick) else Modifier),
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
