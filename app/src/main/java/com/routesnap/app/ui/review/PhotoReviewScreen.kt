@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -134,15 +135,17 @@ fun PhotoReviewScreen(
                 Box(
                     modifier =
                         Modifier
-                            .weight(1f)
                             .fillMaxWidth()
+                            // Lock to 9:16 so photo fills the box without letterboxing.
+                            // This ensures ZoomRect 0-1 coords match renderer coords exactly.
+                            .aspectRatio(9f / 16f)
                             .onSizeChanged { imageSize = it },
                 ) {
                     uiState.current?.uri?.let { uri ->
                         AsyncImage(
                             model = uri,
                             contentDescription = null,
-                            contentScale = ContentScale.Fit,
+                            contentScale = ContentScale.FillBounds,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
