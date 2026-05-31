@@ -80,6 +80,7 @@ class PickerViewModel
                 val photoUris = trip.segments
                     .filter { it.type == SegmentType.PHOTO && it.uri != null }
                     .map { it.uri!! }
+                originalUris = photoUris.map { it.toString() }.toSet()
                 _uiState.value = _uiState.value.copy(
                     tripName = trip.name,
                     selectedUris = photoUris,
@@ -87,6 +88,9 @@ class PickerViewModel
                 updateMetadata(photoUris)
             }
         }
+
+        // Track URIs at load time so we can detect if the user actually changed photos
+        private var originalUris: Set<String> = emptySet()
 
         /**
          * Add selected URIs from Photo Picker
@@ -227,7 +231,13 @@ class PickerViewModel
 
             return try {
                 if (existingTripId != null) {
-                    tripRepository.updateTripMedia(existingTripId, name, uris)
+                    val currentUris = uris.map { it.toString() }.toSet()
+                    if (currentUris == originalUris) {
+                        // Nothing changed — return the existing trip without re-processing
+                        tripRepository.getTripById(existingTripId)
+                    } else {
+                        tripRepository.updateTripMedia(existingTripId, name, uris)
+                    }
                 } else {
                     tripRepository.createTripFromMedia(name, uris)
                 }

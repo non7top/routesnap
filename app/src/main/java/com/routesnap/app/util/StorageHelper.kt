@@ -15,22 +15,13 @@ class StorageHelper(
     private val context: Context,
 ) {
     /**
-     * Get the app's output directory for rendered videos
-     * Uses external files dir which is app-specific and doesn't require storage permissions
+     * Get the app's output directory for rendered videos.
+     * Uses cacheDir so the OS can reclaim space under pressure, and so files
+     * are cleaned up when the trip is deleted (no orphaned user-data files).
      */
     fun getOutputDirectory(): File {
-        // Use app-specific external directory (no permissions needed on Android 10+)
-        val externalDir =
-            context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
-                ?: context.filesDir
-
-        val appDir = File(externalDir, APP_DIR)
-        val outputDir = File(appDir, OUTPUT_DIR)
-
-        if (!outputDir.exists()) {
-            outputDir.mkdirs()
-        }
-
+        val outputDir = File(context.cacheDir, OUTPUT_DIR)
+        if (!outputDir.exists()) outputDir.mkdirs()
         return outputDir
     }
 

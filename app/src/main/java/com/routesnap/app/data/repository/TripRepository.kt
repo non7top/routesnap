@@ -167,8 +167,9 @@ class TripRepository(
         withContext(Dispatchers.IO) {
             projectDir(tripId).deleteRecursively()
             trip?.outputPath?.let { path ->
-                val file = File(path)
-                if (file.exists()) file.delete()
+                File(path).takeIf { it.exists() }?.delete()
+                // Also check cacheDir for videos rendered before the move to cache
+                File(context.cacheDir, "output/${File(path).name}").takeIf { it.exists() }?.delete()
             }
         }
         tripManifestDao.deleteTripById(tripId)
