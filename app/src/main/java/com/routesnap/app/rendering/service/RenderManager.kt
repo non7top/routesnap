@@ -184,15 +184,14 @@ class RenderManager
         ): EditedMediaItem {
             val uri = requireNotNull(segment.uri)
             val baseDuration = if (segment.durationMs > 0) segment.durationMs else 5000L
-            val duration = when {
-                segment.zoomRect != null -> {
+            val duration =
+                if (segment.zoomRect != null) {
                     val area = (segment.zoomRect.right - segment.zoomRect.left) *
                         (segment.zoomRect.bottom - segment.zoomRect.top)
-                    if (area > 0f) (baseDuration / area).toLong().coerceAtMost(12000L)
-                    else baseDuration
+                    if (area > 0f) (baseDuration / area).toLong().coerceAtMost(12000L) else baseDuration
+                } else {
+                    baseDuration
                 }
-                else -> baseDuration
-            }
             android.util.Log.d("RenderManager", "PHOTO duration: $duration ms aspect: ${segment.photoAspectRatio} zoomRect: ${segment.zoomRect}")
             val mediaItem =
                 MediaItem
@@ -211,12 +210,17 @@ class RenderManager
                         add(FadeRgbMatrix(durationUs, headUs, fadeDurationUs, transition.type))
                     }
                     when {
-                        segment.zoomRect != null ->
+                        segment.zoomRect != null -> {
                             add(kenBurnsZoomToRect(segment.zoomRect, duration))
-                        isLandscape ->
+                        }
+
+                        isLandscape -> {
                             add(kenBurnsPanHorizontal(duration, photoIndex, segment.photoAspectRatio!!))
-                        else ->
+                        }
+
+                        else -> {
                             add(kenBurnsZoom(duration, photoIndex))
+                        }
                     }
                 }
             return EditedMediaItem
