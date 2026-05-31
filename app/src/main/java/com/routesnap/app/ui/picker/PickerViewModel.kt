@@ -9,6 +9,9 @@ import androidx.lifecycle.viewModelScope
 import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -194,7 +197,8 @@ class PickerViewModel
          */
         suspend fun createTrip(): TripManifest? {
             val uris = _uiState.value.selectedUris
-            val name = _uiState.value.tripName.ifEmpty { "New Trip" }
+            val dateName = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date())
+            val name = _uiState.value.tripName.ifEmpty { dateName }
 
             if (uris.isEmpty()) {
                 return null

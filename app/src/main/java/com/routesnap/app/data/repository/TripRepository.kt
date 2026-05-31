@@ -117,6 +117,11 @@ class TripRepository(
         saveTrip(updated)
     }
 
+    suspend fun updateTripName(tripId: String, name: String) {
+        val trip = getTripById(tripId) ?: return
+        saveTrip(trip.copy(name = name))
+    }
+
     /**
      * Update trip status
      */

@@ -134,7 +134,41 @@ class TimelineViewModel
                         segmentLocations = locations,
                         clusters = updatedClusters,
                     )
+
+                autoRenameTrip(segments, locations)
             }
+        }
+
+        /**
+         * If the trip still has an auto-generated date name, rename it to "City · Date"
+         * using the first photo's city and timestamp.
+         */
+        private suspend fun autoRenameTrip(
+            segments: List<TripSegment>,
+            locations: Map<String, String>,
+        ) {
+            val tripId = _uiState.value.tripId ?: return
+            val trip = tripRepository.getTripById(tripId) ?: return
+
+            // Only rename if the current name looks like an auto-generated date
+            val datePattern = Regex("""^\w{3} \d{1,2}(, \d{4})?$""")
+            if (!datePattern.matches(trip.name)) return
+
+            val firstWithLocation = segments
+                .filter { it.type == SegmentType.PHOTO }
+                .firstOrNull { locations[it.id] != null }
+                ?: return
+
+            val city = locations[firstWithLocation.id]?.substringBefore(",")?.trim() ?: return
+            val timestamp = firstWithLocation.timestamp
+            val dateStr = if (timestamp != null) {
+                SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(timestamp))
+            } else {
+                null
+            }
+
+            val newName = if (dateStr != null) "$city · $dateStr" else city
+            tripRepository.updateTripName(tripId, newName)
         }
 
         /**
