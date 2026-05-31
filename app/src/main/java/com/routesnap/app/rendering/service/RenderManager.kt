@@ -186,8 +186,9 @@ class RenderManager
             val baseDuration = if (segment.durationMs > 0) segment.durationMs else 5000L
             val duration =
                 if (segment.zoomRect != null) {
-                    val area = (segment.zoomRect.right - segment.zoomRect.left) *
-                        (segment.zoomRect.bottom - segment.zoomRect.top)
+                    val rectW = segment.zoomRect.right - segment.zoomRect.left
+                    val rectH = segment.zoomRect.bottom - segment.zoomRect.top
+                    val area = rectW * rectH
                     if (area > 0f) (baseDuration / area).toLong().coerceAtMost(12000L) else baseDuration
                 } else {
                     baseDuration
