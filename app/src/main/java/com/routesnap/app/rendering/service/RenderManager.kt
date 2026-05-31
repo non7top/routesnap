@@ -295,27 +295,6 @@ class RenderManager
 
         private fun portraitPresentation(): Presentation = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
 
-        private fun kenBurnsZoom(
-            durationMs: Long,
-            index: Int,
-        ): MatrixTransformation {
-            val durationUs = durationMs * 1000L
-            var startUs = -1L
-            val pan = PAN_DIRECTIONS[index % PAN_DIRECTIONS.size]
-            return MatrixTransformation { presentationTimeUs ->
-                if (startUs < 0L) startUs = presentationTimeUs
-                val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-                // Scale 1.15→1.5: at minimum scale 1.15 we have 0.15 extra per side,
-                // which always exceeds the ±0.06 translation — no black edges possible.
-                val scale = 1.15f + 0.35f * progress
-                val tx = pan[0] + (pan[2] - pan[0]) * progress
-                val ty = pan[1] + (pan[3] - pan[1]) * progress
-                android.graphics.Matrix().apply {
-                    setScale(scale, scale)
-                    postTranslate(tx, ty)
-                }
-            }
-        }
 
         /**
          * Horizontal pan for landscape photos. Scales so height fills the portrait frame,
@@ -452,17 +431,6 @@ class RenderManager
             _renderState.value = RenderState.Cancelled
         }
 
-        companion object {
-            // [startX, startY, endX, endY] in NDC units [-1,1]. Values ±0.06 stay within
-            // the 0.1 extra margin that the minimum scale of 1.1 provides on each side.
-            private val PAN_DIRECTIONS =
-                arrayOf(
-                    floatArrayOf(-0.06f, -0.06f, 0.06f, 0.06f), // TL→BR
-                    floatArrayOf(0.06f, -0.06f, -0.06f, 0.06f), // TR→BL
-                    floatArrayOf(-0.06f, 0.06f, 0.06f, -0.06f), // BL→TR
-                    floatArrayOf(0.06f, 0.06f, -0.06f, -0.06f), // BR→TL
-                )
-        }
 
         /**
          * RgbMatrix-based fade transition. getMatrix() is called per-frame by Media3,
