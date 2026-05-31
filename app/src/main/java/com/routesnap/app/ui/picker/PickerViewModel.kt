@@ -85,7 +85,7 @@ class PickerViewModel
                     tripName = trip.name,
                     selectedUris = photoUris,
                 )
-                updateMetadata(photoUris)
+                extractMetadataForSelected()
             }
         }
 
