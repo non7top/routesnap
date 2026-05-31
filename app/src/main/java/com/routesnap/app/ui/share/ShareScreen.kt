@@ -43,6 +43,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -73,7 +74,7 @@ fun ShareScreen(
     val context = LocalContext.current
     var showShareSheet by remember { mutableStateOf(false) }
     var isLooping by remember { mutableStateOf(true) }
-    var playbackSpeed by remember { mutableStateOf(1f) }
+    var playbackSpeed by remember { mutableFloatStateOf(1f) }
 
     val exoPlayer =
         remember(uiState.videoFile) {
@@ -216,7 +217,7 @@ fun ShareScreen(
                             onClick = { playbackSpeed = speed },
                             label = {
                                 Text(
-                                    if (speed == 1f) "1×" else "${speed}×",
+                                    if (speed == 1f) "1×" else "$speed×",
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             },
@@ -228,11 +229,12 @@ fun ShareScreen(
                         Icon(
                             imageVector = Icons.Default.Repeat,
                             contentDescription = if (isLooping) "Loop on" else "Loop off",
-                            tint = if (isLooping) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                            },
+                            tint =
+                                if (isLooping) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                },
                         )
                     }
                 }
