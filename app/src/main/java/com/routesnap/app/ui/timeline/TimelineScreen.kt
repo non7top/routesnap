@@ -84,8 +84,8 @@ fun TimelineScreen(
     tripId: String?,
     onNavigateBack: () -> Unit,
     onNavigateToStyle: () -> Unit,
-    onNavigateToPhotoReview: (segmentId: String) -> Unit = {},
     modifier: Modifier = Modifier,
+    onNavigateToPhotoReview: (segmentId: String) -> Unit = {},
     viewModel: TimelineViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()

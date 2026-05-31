@@ -209,73 +209,75 @@ private fun ZoomRectOverlay(
     val top = rect.top * containerSize.height
     val right = rect.right * containerSize.width
     val bottom = rect.bottom * containerSize.height
-
-    // Body — drag to move entire rect
-    Box(
-        modifier = Modifier
-            .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
-            .size(
-                width = with(density) { (right - left).toDp() },
-                height = with(density) { (bottom - top).toDp() },
-            )
-            .border(2.dp, color)
-            .pointerInput(rect) {
-                detectDragGestures { _, drag ->
-                    val dx = drag.x / containerSize.width
-                    val dy = drag.y / containerSize.height
-                    val w = rect.right - rect.left
-                    val h = rect.bottom - rect.top
-                    val newL = (rect.left + dx).coerceIn(0f, 1f - w)
-                    val newT = (rect.top + dy).coerceIn(0f, 1f - h)
-                    onRectChange(ZoomRect(newL, newT, newL + w, newT + h))
-                }
-            },
-    )
-
-    // Corner handles
-    Handle(Offset(left, top), color, handlePx) { drag ->
-        onRectChange(ZoomRect(
-            left = (rect.left + drag.x / containerSize.width).coerceIn(0f, rect.right - MIN_RECT_FRAC),
-            top = (rect.top + drag.y / containerSize.height).coerceIn(0f, rect.bottom - MIN_RECT_FRAC),
-            right = rect.right, bottom = rect.bottom,
-        ))
-    }
-    Handle(Offset(right - handlePx, top), color, handlePx) { drag ->
-        onRectChange(ZoomRect(
-            left = rect.left, top = (rect.top + drag.y / containerSize.height).coerceIn(0f, rect.bottom - MIN_RECT_FRAC),
-            right = (rect.right + drag.x / containerSize.width).coerceIn(rect.left + MIN_RECT_FRAC, 1f),
-            bottom = rect.bottom,
-        ))
-    }
-    Handle(Offset(left, bottom - handlePx), color, handlePx) { drag ->
-        onRectChange(ZoomRect(
-            left = (rect.left + drag.x / containerSize.width).coerceIn(0f, rect.right - MIN_RECT_FRAC),
-            top = rect.top, right = rect.right,
-            bottom = (rect.bottom + drag.y / containerSize.height).coerceIn(rect.top + MIN_RECT_FRAC, 1f),
-        ))
-    }
-    Handle(Offset(right - handlePx, bottom - handlePx), color, handlePx) { drag ->
-        onRectChange(ZoomRect(
-            left = rect.left, top = rect.top,
-            right = (rect.right + drag.x / containerSize.width).coerceIn(rect.left + MIN_RECT_FRAC, 1f),
-            bottom = (rect.bottom + drag.y / containerSize.height).coerceIn(rect.top + MIN_RECT_FRAC, 1f),
-        ))
-    }
-
-    // Edge handles
     val midX = (left + right) / 2 - handlePx / 2
     val midY = (top + bottom) / 2 - handlePx / 2
-    Handle(Offset(midX, top), color, handlePx) { drag ->
-        onRectChange(rect.copy(top = (rect.top + drag.y / containerSize.height).coerceIn(0f, rect.bottom - MIN_RECT_FRAC)))
-    }
-    Handle(Offset(midX, bottom - handlePx), color, handlePx) { drag ->
-        onRectChange(rect.copy(bottom = (rect.bottom + drag.y / containerSize.height).coerceIn(rect.top + MIN_RECT_FRAC, 1f)))
-    }
-    Handle(Offset(left, midY), color, handlePx) { drag ->
-        onRectChange(rect.copy(left = (rect.left + drag.x / containerSize.width).coerceIn(0f, rect.right - MIN_RECT_FRAC)))
-    }
-    Handle(Offset(right - handlePx, midY), color, handlePx) { drag ->
-        onRectChange(rect.copy(right = (rect.right + drag.x / containerSize.width).coerceIn(rect.left + MIN_RECT_FRAC, 1f)))
+
+    // Single top-level Box wraps all emissions (rect border + handles)
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Body — drag to move entire rect
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
+                .size(
+                    width = with(density) { (right - left).toDp() },
+                    height = with(density) { (bottom - top).toDp() },
+                )
+                .border(2.dp, color)
+                .pointerInput(rect) {
+                    detectDragGestures { _, drag ->
+                        val dx = drag.x / containerSize.width
+                        val dy = drag.y / containerSize.height
+                        val w = rect.right - rect.left
+                        val h = rect.bottom - rect.top
+                        val newL = (rect.left + dx).coerceIn(0f, 1f - w)
+                        val newT = (rect.top + dy).coerceIn(0f, 1f - h)
+                        onRectChange(ZoomRect(newL, newT, newL + w, newT + h))
+                    }
+                },
+        )
+        // Corner handles
+        Handle(Offset(left, top), color, handlePx) { drag ->
+            onRectChange(ZoomRect(
+                left = (rect.left + drag.x / containerSize.width).coerceIn(0f, rect.right - MIN_RECT_FRAC),
+                top = (rect.top + drag.y / containerSize.height).coerceIn(0f, rect.bottom - MIN_RECT_FRAC),
+                right = rect.right, bottom = rect.bottom,
+            ))
+        }
+        Handle(Offset(right - handlePx, top), color, handlePx) { drag ->
+            onRectChange(ZoomRect(
+                left = rect.left,
+                top = (rect.top + drag.y / containerSize.height).coerceIn(0f, rect.bottom - MIN_RECT_FRAC),
+                right = (rect.right + drag.x / containerSize.width).coerceIn(rect.left + MIN_RECT_FRAC, 1f),
+                bottom = rect.bottom,
+            ))
+        }
+        Handle(Offset(left, bottom - handlePx), color, handlePx) { drag ->
+            onRectChange(ZoomRect(
+                left = (rect.left + drag.x / containerSize.width).coerceIn(0f, rect.right - MIN_RECT_FRAC),
+                top = rect.top, right = rect.right,
+                bottom = (rect.bottom + drag.y / containerSize.height).coerceIn(rect.top + MIN_RECT_FRAC, 1f),
+            ))
+        }
+        Handle(Offset(right - handlePx, bottom - handlePx), color, handlePx) { drag ->
+            onRectChange(ZoomRect(
+                left = rect.left, top = rect.top,
+                right = (rect.right + drag.x / containerSize.width).coerceIn(rect.left + MIN_RECT_FRAC, 1f),
+                bottom = (rect.bottom + drag.y / containerSize.height).coerceIn(rect.top + MIN_RECT_FRAC, 1f),
+            ))
+        }
+        // Edge handles
+        Handle(Offset(midX, top), color, handlePx) { drag ->
+            onRectChange(rect.copy(top = (rect.top + drag.y / containerSize.height).coerceIn(0f, rect.bottom - MIN_RECT_FRAC)))
+        }
+        Handle(Offset(midX, bottom - handlePx), color, handlePx) { drag ->
+            onRectChange(rect.copy(bottom = (rect.bottom + drag.y / containerSize.height).coerceIn(rect.top + MIN_RECT_FRAC, 1f)))
+        }
+        Handle(Offset(left, midY), color, handlePx) { drag ->
+            onRectChange(rect.copy(left = (rect.left + drag.x / containerSize.width).coerceIn(0f, rect.right - MIN_RECT_FRAC)))
+        }
+        Handle(Offset(right - handlePx, midY), color, handlePx) { drag ->
+            onRectChange(rect.copy(right = (rect.right + drag.x / containerSize.width).coerceIn(rect.left + MIN_RECT_FRAC, 1f)))
+        }
     }
 }
 
