@@ -88,10 +88,11 @@ fun RouteSnapNavGraph(
 
         composable(
             route = "review/{tripId}/{segmentId}",
-            arguments = listOf(
-                navArgument("tripId") { type = NavType.StringType },
-                navArgument("segmentId") { type = NavType.StringType },
-            ),
+            arguments =
+                listOf(
+                    navArgument("tripId") { type = NavType.StringType },
+                    navArgument("segmentId") { type = NavType.StringType },
+                ),
         ) {
             PhotoReviewScreen(
                 onNavigateBack = { navController.popBackStack() },

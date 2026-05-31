@@ -31,6 +31,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,9 +52,6 @@ import coil.compose.AsyncImage
 import com.routesnap.app.domain.model.ZoomRect
 import com.routesnap.app.ui.theme.RouteSnapTheme
 import kotlin.math.roundToInt
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 
 private val START_COLOR = Color(0xFF2196F3)
 private val END_COLOR = Color(0xFFFF9800)
@@ -97,19 +97,21 @@ fun PhotoReviewScreen(
                             Icon(Icons.Default.Check, contentDescription = "Done")
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                            navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                            actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
                 )
             },
         ) { padding ->
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // Legend
@@ -130,10 +132,11 @@ fun PhotoReviewScreen(
                 var imageSize by remember { mutableStateOf(IntSize.Zero) }
 
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .onSizeChanged { imageSize = it },
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .onSizeChanged { imageSize = it },
                 ) {
                     uiState.current?.uri?.let { uri ->
                         AsyncImage(
@@ -162,9 +165,10 @@ fun PhotoReviewScreen(
 
                 // Prev / Next navigation
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(64.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(64.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(
@@ -219,60 +223,71 @@ private fun ZoomRectOverlay(
     Box(modifier = Modifier.fillMaxSize()) {
         // Body — drag to move entire rect
         Box(
-            modifier = Modifier
-                .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
-                .size(
-                    width = with(density) { (right - left).toDp() },
-                    height = with(density) { (bottom - top).toDp() },
-                )
-                .border(2.dp, color)
-                // pointerInput(Unit) — never restarts; reads currentRect via rememberUpdatedState
-                .pointerInput(Unit) {
-                    detectDragGestures { _, drag ->
-                        val r = currentRect
-                        val dx = drag.x / containerSize.width
-                        val dy = drag.y / containerSize.height
-                        val w = r.right - r.left
-                        val h = r.bottom - r.top
-                        val newL = (r.left + dx).coerceIn(0f, 1f - w)
-                        val newT = (r.top + dy).coerceIn(0f, 1f - h)
-                        currentOnChange(ZoomRect(newL, newT, newL + w, newT + h))
-                    }
-                },
+            modifier =
+                Modifier
+                    .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
+                    .size(
+                        width = with(density) { (right - left).toDp() },
+                        height = with(density) { (bottom - top).toDp() },
+                    ).border(2.dp, color)
+                    // pointerInput(Unit) — never restarts; reads currentRect via rememberUpdatedState
+                    .pointerInput(Unit) {
+                        detectDragGestures { _, drag ->
+                            val r = currentRect
+                            val dx = drag.x / containerSize.width
+                            val dy = drag.y / containerSize.height
+                            val w = r.right - r.left
+                            val h = r.bottom - r.top
+                            val newL = (r.left + dx).coerceIn(0f, 1f - w)
+                            val newT = (r.top + dy).coerceIn(0f, 1f - h)
+                            currentOnChange(ZoomRect(newL, newT, newL + w, newT + h))
+                        }
+                    },
         )
         // Corner handles
         Handle(Offset(left, top), color, handlePx) { drag ->
             val r = currentRect
-            currentOnChange(ZoomRect(
-                left = (r.left + drag.x / containerSize.width).coerceIn(0f, r.right - MIN_RECT_FRAC),
-                top = (r.top + drag.y / containerSize.height).coerceIn(0f, r.bottom - MIN_RECT_FRAC),
-                right = r.right, bottom = r.bottom,
-            ))
+            currentOnChange(
+                ZoomRect(
+                    left = (r.left + drag.x / containerSize.width).coerceIn(0f, r.right - MIN_RECT_FRAC),
+                    top = (r.top + drag.y / containerSize.height).coerceIn(0f, r.bottom - MIN_RECT_FRAC),
+                    right = r.right,
+                    bottom = r.bottom,
+                ),
+            )
         }
         Handle(Offset(right - handlePx, top), color, handlePx) { drag ->
             val r = currentRect
-            currentOnChange(ZoomRect(
-                left = r.left,
-                top = (r.top + drag.y / containerSize.height).coerceIn(0f, r.bottom - MIN_RECT_FRAC),
-                right = (r.right + drag.x / containerSize.width).coerceIn(r.left + MIN_RECT_FRAC, 1f),
-                bottom = r.bottom,
-            ))
+            currentOnChange(
+                ZoomRect(
+                    left = r.left,
+                    top = (r.top + drag.y / containerSize.height).coerceIn(0f, r.bottom - MIN_RECT_FRAC),
+                    right = (r.right + drag.x / containerSize.width).coerceIn(r.left + MIN_RECT_FRAC, 1f),
+                    bottom = r.bottom,
+                ),
+            )
         }
         Handle(Offset(left, bottom - handlePx), color, handlePx) { drag ->
             val r = currentRect
-            currentOnChange(ZoomRect(
-                left = (r.left + drag.x / containerSize.width).coerceIn(0f, r.right - MIN_RECT_FRAC),
-                top = r.top, right = r.right,
-                bottom = (r.bottom + drag.y / containerSize.height).coerceIn(r.top + MIN_RECT_FRAC, 1f),
-            ))
+            currentOnChange(
+                ZoomRect(
+                    left = (r.left + drag.x / containerSize.width).coerceIn(0f, r.right - MIN_RECT_FRAC),
+                    top = r.top,
+                    right = r.right,
+                    bottom = (r.bottom + drag.y / containerSize.height).coerceIn(r.top + MIN_RECT_FRAC, 1f),
+                ),
+            )
         }
         Handle(Offset(right - handlePx, bottom - handlePx), color, handlePx) { drag ->
             val r = currentRect
-            currentOnChange(ZoomRect(
-                left = r.left, top = r.top,
-                right = (r.right + drag.x / containerSize.width).coerceIn(r.left + MIN_RECT_FRAC, 1f),
-                bottom = (r.bottom + drag.y / containerSize.height).coerceIn(r.top + MIN_RECT_FRAC, 1f),
-            ))
+            currentOnChange(
+                ZoomRect(
+                    left = r.left,
+                    top = r.top,
+                    right = (r.right + drag.x / containerSize.width).coerceIn(r.left + MIN_RECT_FRAC, 1f),
+                    bottom = (r.bottom + drag.y / containerSize.height).coerceIn(r.top + MIN_RECT_FRAC, 1f),
+                ),
+            )
         }
         // Edge handles
         Handle(Offset(midX, top), color, handlePx) { drag ->
@@ -306,13 +321,14 @@ private fun Handle(
     val currentOnDrag by androidx.compose.runtime.rememberUpdatedState(onDrag)
     val density = LocalDensity.current
     Box(
-        modifier = Modifier
-            .offset { IntOffset(position.x.roundToInt(), position.y.roundToInt()) }
-            .size(with(density) { sizePx.toDp() })
-            .clip(RectangleShape)
-            .background(color)
-            .pointerInput(Unit) {
-                detectDragGestures { _, drag -> currentOnDrag(drag) }
-            },
+        modifier =
+            Modifier
+                .offset { IntOffset(position.x.roundToInt(), position.y.roundToInt()) }
+                .size(with(density) { sizePx.toDp() })
+                .clip(RectangleShape)
+                .background(color)
+                .pointerInput(Unit) {
+                    detectDragGestures { _, drag -> currentOnDrag(drag) }
+                },
     )
 }

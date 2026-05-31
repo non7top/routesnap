@@ -100,15 +100,17 @@ class TripRepository(
         endRect: ZoomRect,
     ) {
         val trip = getTripById(tripId) ?: return
-        val updated = trip.copy(
-            segments = trip.segments.map { seg ->
-                if (seg.id == segmentId) {
-                    seg.copy(startZoomRect = startRect, endZoomRect = endRect, isReviewed = true)
-                } else {
-                    seg
-                }
-            },
-        )
+        val updated =
+            trip.copy(
+                segments =
+                    trip.segments.map { seg ->
+                        if (seg.id == segmentId) {
+                            seg.copy(startZoomRect = startRect, endZoomRect = endRect, isReviewed = true)
+                        } else {
+                            seg
+                        }
+                    },
+            )
         saveTrip(updated)
     }
 

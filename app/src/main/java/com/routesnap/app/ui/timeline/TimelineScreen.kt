@@ -168,11 +168,12 @@ private fun TimelineContent(
                     index = index,
                     locationName = uiState.segmentLocations[segment.id],
                     onRemove = { onRemoveSegment(segment) },
-                    onPhotoClick = if (segment.type == SegmentType.PHOTO) {
-                        { onNavigateToPhotoReview(segment.id) }
-                    } else {
-                        null
-                    },
+                    onPhotoClick =
+                        if (segment.type == SegmentType.PHOTO) {
+                            { onNavigateToPhotoReview(segment.id) }
+                        } else {
+                            null
+                        },
                 )
             }
         } else {
@@ -193,11 +194,12 @@ private fun TimelineContent(
                         index = segmentIndex,
                         locationName = uiState.segmentLocations[segment.id],
                         onRemove = { onRemoveSegment(segment) },
-                        onPhotoClick = if (segment.type == SegmentType.PHOTO) {
-                            { onNavigateToPhotoReview(segment.id) }
-                        } else {
-                            null
-                        },
+                        onPhotoClick =
+                            if (segment.type == SegmentType.PHOTO) {
+                                { onNavigateToPhotoReview(segment.id) }
+                            } else {
+                                null
+                            },
                     )
                 }
             }
@@ -256,9 +258,10 @@ private fun TimelineItem(
     onPhotoClick: (() -> Unit)? = null,
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (onPhotoClick != null) Modifier.clickable(onClick = onPhotoClick) else Modifier),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .then(if (onPhotoClick != null) Modifier.clickable(onClick = onPhotoClick) else Modifier),
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
