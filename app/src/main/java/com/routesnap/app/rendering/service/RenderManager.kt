@@ -401,7 +401,10 @@ class RenderManager
         ) : RgbMatrix {
             private var startUs = -1L
 
-            override fun getMatrix(presentationTimeUs: Long, useHdr: Boolean): FloatArray {
+            override fun getMatrix(
+                presentationTimeUs: Long,
+                useHdr: Boolean,
+            ): FloatArray {
                 if (startUs < 0L) startUs = presentationTimeUs
                 val elapsed = presentationTimeUs - startUs
                 val alpha = maxOf(headAlpha(elapsed), tailAlpha(elapsed)).coerceIn(0f, MAX_ALPHA)
@@ -419,15 +422,15 @@ class RenderManager
                 return if (type == TransitionType.FLASH) (1f - t) * (1f - t) else 1f - t
             }
 
-            companion object {
-                // Keep fade semi-transparent so the underlying image stays visible
-                private const val MAX_ALPHA = 0.5f
-            }
-
             private fun tailAlpha(elapsed: Long): Float {
                 if (tailFadeDurationUs <= 0L || segmentDurationUs <= 0L) return 0f
                 val tailStart = segmentDurationUs - tailFadeDurationUs
                 return if (elapsed <= tailStart) 0f else (elapsed - tailStart).toFloat() / tailFadeDurationUs
+            }
+
+            companion object {
+                // Keep fade semi-transparent so the underlying image stays visible
+                private const val MAX_ALPHA = 0.5f
             }
         }
 
