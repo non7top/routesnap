@@ -19,12 +19,15 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Slideshow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.TemplatePreset
+import com.routesnap.app.domain.model.TransitionType
 import com.routesnap.app.ui.theme.RouteSnapTheme
 
 /**
@@ -51,6 +55,7 @@ import com.routesnap.app.ui.theme.RouteSnapTheme
 data class StyleUiState(
     val selectedAspectRatio: AspectRatio = AspectRatio.PORTRAIT,
     val selectedTemplate: TemplatePreset = TemplatePreset.BALANCED,
+    val selectedTransition: TransitionType? = null,
     val musicSelected: Boolean = false,
     val musicTitle: String? = null,
     val isProcessing: Boolean = false,
@@ -120,6 +125,16 @@ fun StyleScreen(
                     TemplateSelector(
                         selectedTemplate = uiState.selectedTemplate,
                         onTemplateSelect = { viewModel.updateTemplate(it) },
+                    )
+                }
+
+                // Transition Section
+                item {
+                    SectionTitle(title = "Transition", icon = Icons.Default.Slideshow)
+                    TransitionSelector(
+                        selectedTemplate = uiState.selectedTemplate,
+                        selectedTransition = uiState.selectedTransition,
+                        onTransitionSelect = { viewModel.updateTransition(it) },
                     )
                 }
 
@@ -315,11 +330,45 @@ private fun TemplateSelector(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "Photos: ${template.photoDurationMs / 1000}s | Videos: ${template.videoHighlightDurationMs / 1000}s",
+                        text = "Photos: ${template.photoDurationMs / 1000}s | Videos: ${template.videoHighlightDurationMs / 1000}s | ${template.defaultTransitionType.label} ${template.defaultTransitionDurationMs}ms",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransitionSelector(
+    selectedTemplate: TemplatePreset,
+    selectedTransition: TransitionType?,
+    onTransitionSelect: (TransitionType?) -> Unit,
+) {
+    val options =
+        listOf(
+            null to "Auto (${selectedTemplate.defaultTransitionType.label})",
+            TransitionType.FADE_BLACK to TransitionType.FADE_BLACK.label,
+            TransitionType.FADE_WHITE to TransitionType.FADE_WHITE.label,
+            TransitionType.FLASH to TransitionType.FLASH.label,
+            TransitionType.NONE to TransitionType.NONE.label,
+        )
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = "Override per-trip or leave Auto to use the template default.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { (type, label) ->
+                FilterChip(
+                    selected = selectedTransition == type,
+                    onClick = { onTransitionSelect(type) },
+                    label = { Text(label, style = MaterialTheme.typography.bodySmall) },
+                )
             }
         }
     }

@@ -9,11 +9,9 @@ import android.graphics.Typeface
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.MatrixTransformation
-import androidx.media3.effect.OverlayEffect
-import androidx.media3.effect.OverlaySettings
 import androidx.media3.effect.Presentation
+import androidx.media3.effect.RgbMatrix
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
@@ -25,6 +23,7 @@ import androidx.media3.transformer.Transformer
 import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TemplatePreset
+import com.routesnap.app.domain.model.TransitionType
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -135,17 +134,40 @@ class RenderManager
             _renderState.value = RenderState.Idle
         }
 
+        private data class TransitionParams(
+            val type: TransitionType,
+            val durationMs: Long,
+        )
+
+        private fun effectiveTransition(
+            segment: TripSegment,
+            trip: TripManifest,
+        ): TransitionParams =
+            TransitionParams(
+                type = segment.transitionType ?: trip.transitionOverride ?: trip.template.defaultTransitionType,
+                durationMs = segment.transitionDurationMs ?: trip.template.defaultTransitionDurationMs,
+            )
+
         private fun buildComposition(trip: TripManifest): Composition {
-            val cinematic = trip.template == TemplatePreset.CINEMATIC
             var photoIndex = 0
             val editedMediaItems =
                 trip.segments.mapNotNull { segment ->
                     val uri = segment.uri ?: return@mapNotNull null
                     android.util.Log.d("RenderManager", "Adding segment: ${segment.type} uri: $uri duration: ${segment.durationMs}")
+                    val transition = effectiveTransition(segment, trip)
                     when (segment.type) {
-                        SegmentType.PHOTO -> buildPhotoSegment(uri, segment.durationMs, cinematic, photoIndex).also { photoIndex++ }
-                        SegmentType.VIDEO -> buildVideoSegment(uri)
-                        SegmentType.MAP_TRAVEL -> buildMapTravelSegment(segment, trip)
+                        SegmentType.PHOTO -> {
+                            buildPhotoSegment(uri, segment.durationMs, photoIndex, transition)
+                                .also { photoIndex++ }
+                        }
+
+                        SegmentType.VIDEO -> {
+                            buildVideoSegment(uri, transition)
+                        }
+
+                        SegmentType.MAP_TRAVEL -> {
+                            buildMapTravelSegment(segment, trip)
+                        }
                     }
                 }
             val sequence = EditedMediaItemSequence(editedMediaItems)
@@ -157,11 +179,11 @@ class RenderManager
         private fun buildPhotoSegment(
             uri: Uri,
             durationMs: Long,
-            cinematic: Boolean,
             photoIndex: Int,
+            transition: TransitionParams,
         ): EditedMediaItem {
             val duration = if (durationMs > 0) durationMs else 5000L
-            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms cinematic: $cinematic")
+            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms transition: ${transition.type} ${transition.durationMs}ms")
             val mediaItem =
                 MediaItem
                     .Builder()
@@ -169,13 +191,18 @@ class RenderManager
                     .setImageDurationMs(duration)
                     .build()
             val videoEffects =
-                if (cinematic) {
-                    // Presentation first: letterbox into portrait frame.
-                    // Ken Burns second: zooms the portrait frame, growing landscape
-                    // image outward into the black bar space (pinch-zoom behaviour).
-                    listOf(portraitPresentation(), kenBurnsZoom(duration, photoIndex))
-                } else {
-                    listOf(portraitPresentation())
+                buildList {
+                    add(portraitPresentation())
+                    if (transition.type != TransitionType.NONE) {
+                        val durationUs = duration * 1000L
+                        val fadeDurationUs = transition.durationMs * 1000L
+                        // Tail fade on all photos; head fade skipped on the first photo so
+                        // the video starts clean. Max alpha 0.75 keeps the transition semi-
+                        // transparent (dissolve feel) rather than cutting to a solid colour.
+                        val headUs = if (photoIndex == 0) 0L else fadeDurationUs
+                        add(FadeRgbMatrix(durationUs, headUs, fadeDurationUs, transition.type))
+                    }
+                    add(kenBurnsZoom(duration, photoIndex))
                 }
             return EditedMediaItem
                 .Builder(mediaItem)
@@ -184,12 +211,24 @@ class RenderManager
                 .build()
         }
 
-        private fun buildVideoSegment(uri: Uri): EditedMediaItem =
-            EditedMediaItem
+        private fun buildVideoSegment(
+            uri: Uri,
+            transition: TransitionParams,
+        ): EditedMediaItem {
+            val videoEffects =
+                buildList {
+                    add(portraitPresentation())
+                    // Video duration unknown — pass -1 so tail fade is skipped.
+                    if (transition.type != TransitionType.NONE) {
+                        add(FadeRgbMatrix(-1L, 0L, 0L, transition.type))
+                    }
+                }
+            return EditedMediaItem
                 .Builder(MediaItem.fromUri(uri))
                 .setFrameRate(30)
-                .setEffects(Effects(emptyList(), listOf(portraitPresentation())))
+                .setEffects(Effects(emptyList(), videoEffects))
                 .build()
+        }
 
         private fun buildMapTravelSegment(
             segment: TripSegment,
@@ -217,6 +256,7 @@ class RenderManager
                     .setImageDurationMs(durationMs)
                     .build()
             val durationUs = durationMs * 1000L
+            val fadeDurationUs = (durationMs * 0.3).toLong() * 1000L
             return EditedMediaItem
                 .Builder(mediaItem)
                 .setFrameRate(30)
@@ -225,7 +265,8 @@ class RenderManager
                         emptyList(),
                         listOf(
                             portraitPresentation(),
-                            OverlayEffect(listOf(FadeInOutOverlay(durationUs))),
+                            // Title cards fade in AND out (both head and tail)
+                            FadeRgbMatrix(durationUs, fadeDurationUs, fadeDurationUs, TransitionType.FADE_BLACK),
                         ),
                     ),
                 ).build()
@@ -342,31 +383,54 @@ class RenderManager
                 )
         }
 
-        private class FadeInOutOverlay(
-            private val durationUs: Long,
-        ) : BitmapOverlay() {
-            private val blackBitmap =
-                Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
-                    eraseColor(Color.BLACK)
-                }
+        /**
+         * RgbMatrix-based fade transition. getMatrix() is called per-frame by Media3,
+         * making it work correctly for both video and image (setImageDurationMs) segments,
+         * unlike BitmapOverlay.getOverlaySettings() which is not called per-frame on images.
+         *
+         * @param segmentDurationUs total segment duration; -1 = unknown — tail is skipped
+         * @param headFadeDurationUs ramp at segment start; 0 = no head fade
+         * @param tailFadeDurationUs ramp at segment end; 0 or segmentDurationUs<=0 = no tail fade
+         * @param type FADE_BLACK, FADE_WHITE, or FLASH
+         */
+        private class FadeRgbMatrix(
+            private val segmentDurationUs: Long,
+            private val headFadeDurationUs: Long,
+            private val tailFadeDurationUs: Long,
+            private val type: TransitionType,
+        ) : RgbMatrix {
             private var startUs = -1L
 
-            override fun getBitmap(presentationTimeUs: Long): Bitmap = blackBitmap
-
-            override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
+            override fun getMatrix(
+                presentationTimeUs: Long,
+                useHdr: Boolean,
+            ): FloatArray {
                 if (startUs < 0L) startUs = presentationTimeUs
-                val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-                val alpha =
-                    when {
-                        progress < FADE_RATIO -> 1f - (progress / FADE_RATIO)
-                        progress > 1f - FADE_RATIO -> (progress - (1f - FADE_RATIO)) / FADE_RATIO
-                        else -> 0f
-                    }
-                return OverlaySettings.Builder().setAlphaScale(alpha).build()
+                val elapsed = presentationTimeUs - startUs
+                val alpha = maxOf(headAlpha(elapsed), tailAlpha(elapsed)).coerceIn(0f, MAX_ALPHA)
+                val p = 1f - alpha
+                return if (type == TransitionType.FADE_WHITE || type == TransitionType.FLASH) {
+                    floatArrayOf(p, 0f, 0f, 0f, 0f, p, 0f, 0f, 0f, 0f, p, 0f, alpha, alpha, alpha, 1f)
+                } else {
+                    floatArrayOf(p, 0f, 0f, 0f, 0f, p, 0f, 0f, 0f, 0f, p, 0f, 0f, 0f, 0f, 1f)
+                }
+            }
+
+            private fun headAlpha(elapsed: Long): Float {
+                if (headFadeDurationUs <= 0L || elapsed >= headFadeDurationUs) return 0f
+                val t = elapsed.toFloat() / headFadeDurationUs
+                return if (type == TransitionType.FLASH) (1f - t) * (1f - t) else 1f - t
+            }
+
+            private fun tailAlpha(elapsed: Long): Float {
+                if (tailFadeDurationUs <= 0L || segmentDurationUs <= 0L) return 0f
+                val tailStart = segmentDurationUs - tailFadeDurationUs
+                return if (elapsed <= tailStart) 0f else (elapsed - tailStart).toFloat() / tailFadeDurationUs
             }
 
             companion object {
-                private const val FADE_RATIO = 0.3f
+                // Keep fade semi-transparent so the underlying image stays visible
+                private const val MAX_ALPHA = 0.5f
             }
         }
 

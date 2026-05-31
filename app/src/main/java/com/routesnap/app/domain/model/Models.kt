@@ -43,6 +43,20 @@ data class LatLng(
 }
 
 /**
+ * Transition effect applied at the boundary between segments.
+ * NONE = hard cut, FADE_BLACK / FADE_WHITE = dip through colour,
+ * FLASH = white spike that decays rapidly at the segment head.
+ */
+enum class TransitionType(
+    val label: String,
+) {
+    NONE("Cut"),
+    FADE_BLACK("Fade"),
+    FADE_WHITE("Dip White"),
+    FLASH("Flash"),
+}
+
+/**
  * Represents a single segment in the trip video timeline
  */
 data class TripSegment(
@@ -58,6 +72,8 @@ data class TripSegment(
     val clusterId: String?,
     val timestamp: Long? = null,
     val order: Int = 0,
+    val transitionType: TransitionType? = null,
+    val transitionDurationMs: Long? = null,
 )
 
 /**
@@ -96,10 +112,12 @@ enum class TemplatePreset(
     val videoHighlightDurationMs: Long,
     val displayName: String,
     val description: String,
+    val defaultTransitionType: TransitionType,
+    val defaultTransitionDurationMs: Long,
 ) {
-    FAST_PACED(2000, 3000, "Fast-Paced", "Quick cuts, energetic"),
-    BALANCED(4000, 5000, "Balanced", "Standard pacing"),
-    CINEMATIC(5000, 8000, "Cinematic", "Slow, dramatic with Ken Burns"),
+    FAST_PACED(2000, 3000, "Fast-Paced", "Quick cuts, energetic", TransitionType.NONE, 100L),
+    BALANCED(4000, 5000, "Balanced", "Standard pacing", TransitionType.NONE, 250L),
+    CINEMATIC(5000, 8000, "Cinematic", "Slow, dramatic with Ken Burns", TransitionType.NONE, 400L),
 }
 
 /**
@@ -128,6 +146,7 @@ data class TripManifest(
     val totalDurationMs: Long = 0,
     val aspectRatio: AspectRatio = AspectRatio.PORTRAIT,
     val template: TemplatePreset = TemplatePreset.BALANCED,
+    val transitionOverride: TransitionType? = null,
     val musicUri: Uri? = null,
     val status: RenderStatus = RenderStatus.DRAFT,
     val outputPath: String? = null,

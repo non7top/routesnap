@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.TemplatePreset
+import com.routesnap.app.domain.model.TransitionType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,10 @@ class StyleViewModel
             _uiState.value = _uiState.value.copy(selectedTemplate = template)
         }
 
+        fun updateTransition(transition: TransitionType?) {
+            _uiState.value = _uiState.value.copy(selectedTransition = transition)
+        }
+
         fun selectMusic() {
             _uiState.value =
                 _uiState.value.copy(
@@ -52,6 +57,7 @@ class StyleViewModel
                     id,
                     _uiState.value.selectedTemplate,
                     _uiState.value.selectedAspectRatio,
+                    _uiState.value.selectedTransition,
                 )
                 onReady()
             }

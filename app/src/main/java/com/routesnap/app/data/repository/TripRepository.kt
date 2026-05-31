@@ -11,6 +11,7 @@ import com.routesnap.app.domain.clustering.ClusteringAlgorithm
 import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.RenderStatus
 import com.routesnap.app.domain.model.TemplatePreset
+import com.routesnap.app.domain.model.TransitionType
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
 import com.squareup.moshi.FromJson
@@ -85,9 +86,10 @@ class TripRepository(
         tripId: String,
         template: TemplatePreset,
         aspectRatio: AspectRatio,
+        transitionOverride: TransitionType?,
     ) {
         val trip = getTripById(tripId) ?: return
-        saveTrip(trip.copy(template = template, aspectRatio = aspectRatio))
+        saveTrip(trip.copy(template = template, aspectRatio = aspectRatio, transitionOverride = transitionOverride))
     }
 
     /**
