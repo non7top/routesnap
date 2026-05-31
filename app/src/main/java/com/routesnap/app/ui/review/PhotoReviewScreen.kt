@@ -202,6 +202,10 @@ private fun ZoomRectOverlay(
     containerSize: IntSize,
     onRectChange: (ZoomRect) -> Unit,
 ) {
+    // rememberUpdatedState: drag lambdas always read the latest rect/callback
+    // without restarting the gesture detector on every state change.
+    val currentRect by androidx.compose.runtime.rememberUpdatedState(rect)
+    val currentOnChange by androidx.compose.runtime.rememberUpdatedState(onRectChange)
     val density = LocalDensity.current
     val handlePx = with(density) { HANDLE_DP.dp.toPx() }
 
@@ -212,7 +216,6 @@ private fun ZoomRectOverlay(
     val midX = (left + right) / 2 - handlePx / 2
     val midY = (top + bottom) / 2 - handlePx / 2
 
-    // Single top-level Box wraps all emissions (rect border + handles)
     Box(modifier = Modifier.fillMaxSize()) {
         // Body — drag to move entire rect
         Box(
@@ -223,60 +226,70 @@ private fun ZoomRectOverlay(
                     height = with(density) { (bottom - top).toDp() },
                 )
                 .border(2.dp, color)
-                .pointerInput(rect) {
+                // pointerInput(Unit) — never restarts; reads currentRect via rememberUpdatedState
+                .pointerInput(Unit) {
                     detectDragGestures { _, drag ->
+                        val r = currentRect
                         val dx = drag.x / containerSize.width
                         val dy = drag.y / containerSize.height
-                        val w = rect.right - rect.left
-                        val h = rect.bottom - rect.top
-                        val newL = (rect.left + dx).coerceIn(0f, 1f - w)
-                        val newT = (rect.top + dy).coerceIn(0f, 1f - h)
-                        onRectChange(ZoomRect(newL, newT, newL + w, newT + h))
+                        val w = r.right - r.left
+                        val h = r.bottom - r.top
+                        val newL = (r.left + dx).coerceIn(0f, 1f - w)
+                        val newT = (r.top + dy).coerceIn(0f, 1f - h)
+                        currentOnChange(ZoomRect(newL, newT, newL + w, newT + h))
                     }
                 },
         )
         // Corner handles
         Handle(Offset(left, top), color, handlePx) { drag ->
-            onRectChange(ZoomRect(
-                left = (rect.left + drag.x / containerSize.width).coerceIn(0f, rect.right - MIN_RECT_FRAC),
-                top = (rect.top + drag.y / containerSize.height).coerceIn(0f, rect.bottom - MIN_RECT_FRAC),
-                right = rect.right, bottom = rect.bottom,
+            val r = currentRect
+            currentOnChange(ZoomRect(
+                left = (r.left + drag.x / containerSize.width).coerceIn(0f, r.right - MIN_RECT_FRAC),
+                top = (r.top + drag.y / containerSize.height).coerceIn(0f, r.bottom - MIN_RECT_FRAC),
+                right = r.right, bottom = r.bottom,
             ))
         }
         Handle(Offset(right - handlePx, top), color, handlePx) { drag ->
-            onRectChange(ZoomRect(
-                left = rect.left,
-                top = (rect.top + drag.y / containerSize.height).coerceIn(0f, rect.bottom - MIN_RECT_FRAC),
-                right = (rect.right + drag.x / containerSize.width).coerceIn(rect.left + MIN_RECT_FRAC, 1f),
-                bottom = rect.bottom,
+            val r = currentRect
+            currentOnChange(ZoomRect(
+                left = r.left,
+                top = (r.top + drag.y / containerSize.height).coerceIn(0f, r.bottom - MIN_RECT_FRAC),
+                right = (r.right + drag.x / containerSize.width).coerceIn(r.left + MIN_RECT_FRAC, 1f),
+                bottom = r.bottom,
             ))
         }
         Handle(Offset(left, bottom - handlePx), color, handlePx) { drag ->
-            onRectChange(ZoomRect(
-                left = (rect.left + drag.x / containerSize.width).coerceIn(0f, rect.right - MIN_RECT_FRAC),
-                top = rect.top, right = rect.right,
-                bottom = (rect.bottom + drag.y / containerSize.height).coerceIn(rect.top + MIN_RECT_FRAC, 1f),
+            val r = currentRect
+            currentOnChange(ZoomRect(
+                left = (r.left + drag.x / containerSize.width).coerceIn(0f, r.right - MIN_RECT_FRAC),
+                top = r.top, right = r.right,
+                bottom = (r.bottom + drag.y / containerSize.height).coerceIn(r.top + MIN_RECT_FRAC, 1f),
             ))
         }
         Handle(Offset(right - handlePx, bottom - handlePx), color, handlePx) { drag ->
-            onRectChange(ZoomRect(
-                left = rect.left, top = rect.top,
-                right = (rect.right + drag.x / containerSize.width).coerceIn(rect.left + MIN_RECT_FRAC, 1f),
-                bottom = (rect.bottom + drag.y / containerSize.height).coerceIn(rect.top + MIN_RECT_FRAC, 1f),
+            val r = currentRect
+            currentOnChange(ZoomRect(
+                left = r.left, top = r.top,
+                right = (r.right + drag.x / containerSize.width).coerceIn(r.left + MIN_RECT_FRAC, 1f),
+                bottom = (r.bottom + drag.y / containerSize.height).coerceIn(r.top + MIN_RECT_FRAC, 1f),
             ))
         }
         // Edge handles
         Handle(Offset(midX, top), color, handlePx) { drag ->
-            onRectChange(rect.copy(top = (rect.top + drag.y / containerSize.height).coerceIn(0f, rect.bottom - MIN_RECT_FRAC)))
+            val r = currentRect
+            currentOnChange(r.copy(top = (r.top + drag.y / containerSize.height).coerceIn(0f, r.bottom - MIN_RECT_FRAC)))
         }
         Handle(Offset(midX, bottom - handlePx), color, handlePx) { drag ->
-            onRectChange(rect.copy(bottom = (rect.bottom + drag.y / containerSize.height).coerceIn(rect.top + MIN_RECT_FRAC, 1f)))
+            val r = currentRect
+            currentOnChange(r.copy(bottom = (r.bottom + drag.y / containerSize.height).coerceIn(r.top + MIN_RECT_FRAC, 1f)))
         }
         Handle(Offset(left, midY), color, handlePx) { drag ->
-            onRectChange(rect.copy(left = (rect.left + drag.x / containerSize.width).coerceIn(0f, rect.right - MIN_RECT_FRAC)))
+            val r = currentRect
+            currentOnChange(r.copy(left = (r.left + drag.x / containerSize.width).coerceIn(0f, r.right - MIN_RECT_FRAC)))
         }
         Handle(Offset(right - handlePx, midY), color, handlePx) { drag ->
-            onRectChange(rect.copy(right = (rect.right + drag.x / containerSize.width).coerceIn(rect.left + MIN_RECT_FRAC, 1f)))
+            val r = currentRect
+            currentOnChange(r.copy(right = (r.right + drag.x / containerSize.width).coerceIn(r.left + MIN_RECT_FRAC, 1f)))
         }
     }
 }
@@ -288,6 +301,9 @@ private fun Handle(
     sizePx: Float,
     onDrag: (Offset) -> Unit,
 ) {
+    // rememberUpdatedState ensures the latest onDrag lambda is always called,
+    // even though pointerInput(Unit) never restarts the gesture detector.
+    val currentOnDrag by androidx.compose.runtime.rememberUpdatedState(onDrag)
     val density = LocalDensity.current
     Box(
         modifier = Modifier
@@ -296,7 +312,7 @@ private fun Handle(
             .clip(RectangleShape)
             .background(color)
             .pointerInput(Unit) {
-                detectDragGestures { _, drag -> onDrag(drag) }
+                detectDragGestures { _, drag -> currentOnDrag(drag) }
             },
     )
 }
