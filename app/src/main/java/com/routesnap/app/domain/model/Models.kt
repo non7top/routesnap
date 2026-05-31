@@ -69,15 +69,16 @@ data class ZoomRect(
         val FULL = ZoomRect(0f, 0f, 1f, 1f)
 
         /**
-         * Default start/end rect pairs that reproduce the old 4-direction Ken Burns
-         * (scale 1.15→1.5, ±0.06 NDC pan). Derived analytically from the matrix math.
+         * Default start/end rect pairs reproducing the old 4-direction Ken Burns
+         * (scale 1.15→1.5, ±0.06 NDC pan). y-values differ from x-values because
+         * Media3's GL pipeline flips the y-axis (ty = +cy*scale, not -cy*scale).
          */
         private val DEFAULTS =
             listOf(
-                Pair(ZoomRect(0.09f, 0.09f, 0.96f, 0.96f), ZoomRect(0.15f, 0.15f, 0.81f, 0.81f)), // TL→BR
-                Pair(ZoomRect(0.04f, 0.09f, 0.91f, 0.96f), ZoomRect(0.19f, 0.15f, 0.85f, 0.81f)), // TR→BL
-                Pair(ZoomRect(0.09f, 0.04f, 0.96f, 0.91f), ZoomRect(0.15f, 0.19f, 0.81f, 0.85f)), // BL→TR
-                Pair(ZoomRect(0.04f, 0.04f, 0.91f, 0.91f), ZoomRect(0.19f, 0.19f, 0.85f, 0.85f)), // BR→TL
+                Pair(ZoomRect(0.09f, 0.04f, 0.96f, 0.91f), ZoomRect(0.15f, 0.19f, 0.81f, 0.85f)), // TL→BR
+                Pair(ZoomRect(0.04f, 0.04f, 0.91f, 0.91f), ZoomRect(0.19f, 0.19f, 0.85f, 0.85f)), // TR→BL
+                Pair(ZoomRect(0.09f, 0.09f, 0.96f, 0.96f), ZoomRect(0.15f, 0.15f, 0.81f, 0.81f)), // BL→TR
+                Pair(ZoomRect(0.04f, 0.09f, 0.91f, 0.96f), ZoomRect(0.19f, 0.15f, 0.85f, 0.81f)), // BR→TL
             )
 
         fun defaultPair(index: Int): Pair<ZoomRect, ZoomRect> = DEFAULTS[index % DEFAULTS.size]

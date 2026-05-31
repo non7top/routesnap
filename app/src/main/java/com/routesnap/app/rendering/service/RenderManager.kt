@@ -368,9 +368,11 @@ class RenderManager
                 val scale = (1f / minOf(rectW, rectH)).coerceIn(1f, 8f)
                 val cx = (rect.left + rect.right) - 1f
                 val cy = (rect.top + rect.bottom) - 1f
+                // tx: negative cx → shows right content (x-axis matches Android y-down)
+                // ty: positive cy → shows bottom content (y-axis is flipped in Media3's GL pipeline)
                 android.graphics.Matrix().apply {
                     setScale(scale, scale)
-                    postTranslate(-cx * scale, -cy * scale)
+                    postTranslate(-cx * scale, cy * scale)
                 }
             }
         }
