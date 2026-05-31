@@ -67,6 +67,9 @@ class PickerViewModel
     ) : ViewModel() {
         private val existingTripId: String? = savedStateHandle["tripId"]
 
+        // Track URIs at load time so we can detect if the user actually changed photos
+        private var originalUris: Set<String> = emptySet()
+
         private val _uiState = MutableStateFlow(PickerUiState())
         val uiState: StateFlow<PickerUiState> = _uiState.asStateFlow()
 
@@ -88,9 +91,6 @@ class PickerViewModel
                 extractMetadataForSelected()
             }
         }
-
-        // Track URIs at load time so we can detect if the user actually changed photos
-        private var originalUris: Set<String> = emptySet()
 
         /**
          * Add selected URIs from Photo Picker

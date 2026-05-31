@@ -148,27 +148,27 @@ class TimelineViewModel
             locations: Map<String, String>,
         ) {
             val tripId = _uiState.value.tripId ?: return
-            val trip = tripRepository.getTripById(tripId) ?: return
+            val newName = buildAutoName(tripId, segments, locations) ?: return
+            tripRepository.updateTripName(tripId, newName)
+        }
 
-            // Only rename if the current name looks like an auto-generated date
-            val datePattern = Regex("""^\w{3} \d{1,2}(, \d{4})?$""")
-            if (!datePattern.matches(trip.name)) return
-
+        private suspend fun buildAutoName(
+            tripId: String,
+            segments: List<TripSegment>,
+            locations: Map<String, String>,
+        ): String? {
+            val trip = tripRepository.getTripById(tripId) ?: return null
+            if (!Regex("""^\w{3} \d{1,2}(, \d{4})?$""").matches(trip.name)) return null
             val firstWithLocation = segments
                 .filter { it.type == SegmentType.PHOTO }
                 .firstOrNull { locations[it.id] != null }
-                ?: return
-
-            val city = locations[firstWithLocation.id]?.substringBefore(",")?.trim() ?: return
-            val timestamp = firstWithLocation.timestamp
-            val dateStr = if (timestamp != null) {
-                SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(timestamp))
-            } else {
-                null
+                ?: return null
+            val city = locations[firstWithLocation.id]?.substringBefore(",")?.trim()
+                ?: return null
+            val dateStr = firstWithLocation.timestamp?.let {
+                SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(it))
             }
-
-            val newName = if (dateStr != null) "$city · $dateStr" else city
-            tripRepository.updateTripName(tripId, newName)
+            return if (dateStr != null) "$city · $dateStr" else city
         }
 
         /**

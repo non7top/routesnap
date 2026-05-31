@@ -97,7 +97,6 @@ fun ProjectListScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
-                    onNewTrip = onNewTrip,
                 )
             } else {
                 LazyColumn(
@@ -241,7 +240,6 @@ private fun TripCard(
 
 @Composable
 private fun EmptyState(
-    onNewTrip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
