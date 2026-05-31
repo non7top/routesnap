@@ -367,7 +367,7 @@ class RenderManager
                 val rectH = (rect.bottom - rect.top).coerceAtLeast(0.05f)
                 val scale = (1f / minOf(rectW, rectH)).coerceIn(1f, 8f)
                 val cx = (rect.left + rect.right) - 1f
-                val cy = 1f - (rect.top + rect.bottom)
+                val cy = (rect.top + rect.bottom) - 1f
                 android.graphics.Matrix().apply {
                     setScale(scale, scale)
                     postTranslate(-cx * scale, -cy * scale)
