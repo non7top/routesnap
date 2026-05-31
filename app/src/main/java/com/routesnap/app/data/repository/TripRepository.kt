@@ -1,8 +1,10 @@
 package com.routesnap.app.data.repository
 
 import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import android.util.Log
+import java.io.File
 import com.routesnap.app.data.exif.MediaMetadata
 import com.routesnap.app.data.exif.MetadataExtractor
 import com.routesnap.app.data.local.TripManifestDao
@@ -28,6 +30,7 @@ import kotlinx.coroutines.withContext
  * Repository for managing trips and media
  */
 class TripRepository(
+    private val context: Context,
     private val tripManifestDao: TripManifestDao,
     private val contentResolver: ContentResolver,
 ) {
@@ -127,9 +130,12 @@ class TripRepository(
     }
 
     /**
-     * Delete a trip
+     * Delete a trip and its private photo copies
      */
     suspend fun deleteTrip(tripId: String) {
+        withContext(Dispatchers.IO) {
+            projectDir(tripId).deleteRecursively()
+        }
         tripManifestDao.deleteTripById(tripId)
     }
 
@@ -156,27 +162,65 @@ class TripRepository(
     suspend fun extractMetadataBatch(uris: List<Uri>): List<MediaMetadata> = metadataExtractor.extractMetadataBatch(uris)
 
     /**
-     * Create a new trip from selected media
+     * Create a new trip from selected media.
+     * Photos are copied into app-private storage so URIs survive app restarts.
      */
     suspend fun createTripFromMedia(
         name: String,
         uris: List<Uri>,
-    ): TripManifest =
-        processSelectedMedia(uris).let { segments ->
-            val clusters = clusteringAlgorithm.createClustersFromSegments(segments)
-            val totalDurationMs = segments.sumOf { it.durationMs }
+    ): TripManifest {
+        val rawSegments = processSelectedMedia(uris)
 
-            val trip =
-                TripManifest(
-                    name = name,
-                    segments = segments,
-                    clusters = clusters,
-                    totalDurationMs = totalDurationMs,
-                )
-
-            saveTrip(trip)
-            trip
+        // Reserve a trip ID up-front so we know the destination directory.
+        val tripId = java.util.UUID.randomUUID().toString()
+        val persistedSegments = withContext(Dispatchers.IO) {
+            copyPhotosToPrivateStorage(tripId, rawSegments)
         }
+
+        val clusters = clusteringAlgorithm.createClustersFromSegments(persistedSegments)
+        val trip =
+            TripManifest(
+                id = tripId,
+                name = name,
+                segments = persistedSegments,
+                clusters = clusters,
+                totalDurationMs = persistedSegments.sumOf { it.durationMs },
+            )
+        saveTrip(trip)
+        return trip
+    }
+
+    /**
+     * Copies PHOTO segments from their content URIs into app-private storage under
+     * filesDir/projects/<tripId>/photos/. Returns the segment list with updated URIs.
+     * VIDEO and MAP_TRAVEL segments are left unchanged.
+     */
+    private fun copyPhotosToPrivateStorage(
+        tripId: String,
+        segments: List<TripSegment>,
+    ): List<TripSegment> {
+        val photosDir = File(projectDir(tripId), "photos").also { it.mkdirs() }
+        return segments.map { segment ->
+            val srcUri = segment.uri
+            if (segment.type != com.routesnap.app.domain.model.SegmentType.PHOTO || srcUri == null) {
+                return@map segment
+            }
+            try {
+                val ext = srcUri.lastPathSegment?.substringAfterLast('.', "jpg") ?: "jpg"
+                val destFile = File(photosDir, "${segment.id}.$ext")
+                contentResolver.openInputStream(srcUri)?.use { input ->
+                    destFile.outputStream().use { input.copyTo(it) }
+                }
+                segment.copy(uri = Uri.fromFile(destFile))
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to copy photo ${segment.id}: ${e.message}", e)
+                segment // keep original URI if copy fails
+            }
+        }
+    }
+
+    private fun projectDir(tripId: String): File =
+        File(context.filesDir, "projects/$tripId")
 
     companion object {
         private const val TAG = "TripRepository"
