@@ -6,7 +6,9 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.SavedStateHandle
 import com.routesnap.app.data.repository.TripRepository
+import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
 import java.text.SimpleDateFormat
@@ -59,11 +61,32 @@ data class SelectedMediaMetadata(
 class PickerViewModel
     @Inject
     constructor(
+        savedStateHandle: SavedStateHandle,
         private val tripRepository: TripRepository,
         private val contentResolver: ContentResolver,
     ) : ViewModel() {
+        private val existingTripId: String? = savedStateHandle["tripId"]
+
         private val _uiState = MutableStateFlow(PickerUiState())
         val uiState: StateFlow<PickerUiState> = _uiState.asStateFlow()
+
+        init {
+            if (existingTripId != null) loadExistingTrip(existingTripId)
+        }
+
+        private fun loadExistingTrip(tripId: String) {
+            viewModelScope.launch {
+                val trip = tripRepository.getTripById(tripId) ?: return@launch
+                val photoUris = trip.segments
+                    .filter { it.type == SegmentType.PHOTO && it.uri != null }
+                    .map { it.uri!! }
+                _uiState.value = _uiState.value.copy(
+                    tripName = trip.name,
+                    selectedUris = photoUris,
+                )
+                updateMetadata(photoUris)
+            }
+        }
 
         /**
          * Add selected URIs from Photo Picker
@@ -200,12 +223,14 @@ class PickerViewModel
             val dateName = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date())
             val name = _uiState.value.tripName.ifEmpty { dateName }
 
-            if (uris.isEmpty()) {
-                return null
-            }
+            if (uris.isEmpty()) return null
 
             return try {
-                tripRepository.createTripFromMedia(name, uris)
+                if (existingTripId != null) {
+                    tripRepository.updateTripMedia(existingTripId, name, uris)
+                } else {
+                    tripRepository.createTripFromMedia(name, uris)
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message ?: "Failed to create trip")
                 null

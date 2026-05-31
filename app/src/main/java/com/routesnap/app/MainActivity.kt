@@ -60,11 +60,22 @@ fun RouteSnapNavGraph(
         composable("projects") {
             ProjectListScreen(
                 onNewTrip = { navController.navigate("picker") },
-                onOpenTrip = { tripId -> navController.navigate("timeline/$tripId") },
+                onOpenTrip = { tripId -> navController.navigate("picker/$tripId") },
             )
         }
 
         composable("picker") {
+            PhotoPickerScreen(
+                onNavigateToTimeline = { tripId ->
+                    navController.navigate("timeline/$tripId")
+                },
+            )
+        }
+
+        composable(
+            route = "picker/{tripId}",
+            arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
+        ) {
             PhotoPickerScreen(
                 onNavigateToTimeline = { tripId ->
                     navController.navigate("timeline/$tripId")

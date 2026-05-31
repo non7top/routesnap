@@ -117,6 +117,31 @@ class TripRepository(
         saveTrip(updated)
     }
 
+    /**
+     * Re-process media for an existing trip (e.g. user adds more photos on resume).
+     * Copies new photos to private storage and re-clusters.
+     */
+    suspend fun updateTripMedia(
+        tripId: String,
+        name: String,
+        uris: List<Uri>,
+    ): TripManifest {
+        val rawSegments = processSelectedMedia(uris)
+        val persistedSegments = withContext(Dispatchers.IO) {
+            copyPhotosToPrivateStorage(tripId, rawSegments)
+        }
+        val clusters = clusteringAlgorithm.createClustersFromSegments(persistedSegments)
+        val trip = TripManifest(
+            id = tripId,
+            name = name,
+            segments = persistedSegments,
+            clusters = clusters,
+            totalDurationMs = persistedSegments.sumOf { it.durationMs },
+        )
+        saveTrip(trip)
+        return trip
+    }
+
     suspend fun updateTripName(tripId: String, name: String) {
         val trip = getTripById(tripId) ?: return
         saveTrip(trip.copy(name = name))
