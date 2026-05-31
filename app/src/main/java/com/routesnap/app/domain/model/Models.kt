@@ -57,15 +57,31 @@ enum class TransitionType(
 }
 
 /**
- * Normalized rectangle (0–1 coordinates) used as the Ken Burns end frame.
- * Starting frame is always the full photo.
+ * Normalized rectangle (0–1 coordinates) used as Ken Burns start/end frames.
  */
 data class ZoomRect(
     val left: Float,
     val top: Float,
     val right: Float,
     val bottom: Float,
-)
+) {
+    companion object {
+        val FULL = ZoomRect(0f, 0f, 1f, 1f)
+
+        /**
+         * Default start/end rect pairs that reproduce the old 4-direction Ken Burns
+         * (scale 1.15→1.5, ±0.06 NDC pan). Derived analytically from the matrix math.
+         */
+        private val DEFAULTS = listOf(
+            Pair(ZoomRect(0.09f, 0.09f, 0.96f, 0.96f), ZoomRect(0.15f, 0.15f, 0.81f, 0.81f)), // TL→BR
+            Pair(ZoomRect(0.04f, 0.09f, 0.91f, 0.96f), ZoomRect(0.19f, 0.15f, 0.85f, 0.81f)), // TR→BL
+            Pair(ZoomRect(0.09f, 0.04f, 0.96f, 0.91f), ZoomRect(0.15f, 0.19f, 0.81f, 0.85f)), // BL→TR
+            Pair(ZoomRect(0.04f, 0.04f, 0.91f, 0.91f), ZoomRect(0.19f, 0.19f, 0.85f, 0.85f)), // BR→TL
+        )
+
+        fun defaultPair(index: Int): Pair<ZoomRect, ZoomRect> = DEFAULTS[index % DEFAULTS.size]
+    }
+}
 
 /**
  * Represents a single segment in the trip video timeline

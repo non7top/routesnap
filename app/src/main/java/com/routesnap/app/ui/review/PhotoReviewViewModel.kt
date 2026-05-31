@@ -46,18 +46,22 @@ class PhotoReviewViewModel
             viewModelScope.launch {
                 val id = tripId ?: return@launch
                 val trip = tripRepository.getTripById(id) ?: return@launch
-                val photoSegments = trip.segments.filter {
-                    it.uri != null && it.type == com.routesnap.app.domain.model.SegmentType.PHOTO
-                }
-                val initialIndex = photoSegments.indexOfFirst { it.id == initialSegmentId }
-                    .coerceAtLeast(0)
+                val photoSegments =
+                    trip.segments.filter {
+                        it.uri != null && it.type == com.routesnap.app.domain.model.SegmentType.PHOTO
+                    }
+                val initialIndex =
+                    photoSegments
+                        .indexOfFirst { it.id == initialSegmentId }
+                        .coerceAtLeast(0)
                 val initial = photoSegments.getOrNull(initialIndex)
-                _uiState.value = PhotoReviewUiState(
-                    segments = photoSegments,
-                    currentIndex = initialIndex,
-                    startRect = initial?.startZoomRect ?: ZoomRect(0f, 0f, 1f, 1f),
-                    endRect = initial?.endZoomRect ?: defaultEndRect(initialIndex),
-                )
+                _uiState.value =
+                    PhotoReviewUiState(
+                        segments = photoSegments,
+                        currentIndex = initialIndex,
+                        startRect = initial?.startZoomRect ?: ZoomRect.defaultPair(initialIndex).first,
+                        endRect = initial?.endZoomRect ?: ZoomRect.defaultPair(initialIndex).second,
+                    )
             }
         }
 
@@ -65,11 +69,12 @@ class PhotoReviewViewModel
             saveCurrentRects()
             val state = _uiState.value
             val next = state.segments.getOrNull(index) ?: return
-            _uiState.value = state.copy(
-                currentIndex = index,
-                startRect = next.startZoomRect ?: ZoomRect(0f, 0f, 1f, 1f),
-                endRect = next.endZoomRect ?: defaultEndRect(index),
-            )
+            _uiState.value =
+                state.copy(
+                    currentIndex = index,
+                    startRect = next.startZoomRect ?: ZoomRect.defaultPair(index).first,
+                    endRect = next.endZoomRect ?: ZoomRect.defaultPair(index).second,
+                )
         }
 
         fun updateStartRect(rect: ZoomRect) {
@@ -94,13 +99,4 @@ class PhotoReviewViewModel
             }
         }
 
-        private fun defaultEndRect(index: Int): ZoomRect {
-            val presets = listOf(
-                ZoomRect(0.15f, 0.1f, 0.85f, 0.9f),
-                ZoomRect(0.05f, 0.05f, 0.65f, 0.95f),
-                ZoomRect(0.35f, 0.05f, 0.95f, 0.95f),
-                ZoomRect(0.1f, 0.15f, 0.9f, 0.85f),
-            )
-            return presets[index % presets.size]
-        }
     }

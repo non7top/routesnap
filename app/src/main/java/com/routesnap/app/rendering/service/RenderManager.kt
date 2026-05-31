@@ -211,17 +211,17 @@ class RenderManager
                         add(FadeRgbMatrix(durationUs, headUs, fadeDurationUs, transition.type))
                     }
                     when {
-                        segment.endZoomRect != null -> {
-                            val start = segment.startZoomRect ?: ZoomRect(0f, 0f, 1f, 1f)
-                            add(kenBurnsZoomToRect(start, segment.endZoomRect, duration))
-                        }
-
                         isLandscape -> {
                             add(kenBurnsPanHorizontal(duration, photoIndex, segment.photoAspectRatio!!))
                         }
 
                         else -> {
-                            add(kenBurnsZoom(duration, photoIndex))
+                            // Use stored rects (user-defined or default), falling back to
+                            // computed defaults if the segment predates this feature.
+                            val (defStart, defEnd) = ZoomRect.defaultPair(photoIndex)
+                            val start = segment.startZoomRect ?: defStart
+                            val end = segment.endZoomRect ?: defEnd
+                            add(kenBurnsZoomToRect(start, end, duration))
                         }
                     }
                 }
@@ -356,12 +356,13 @@ class RenderManager
             return MatrixTransformation { presentationTimeUs ->
                 if (startUs < 0L) startUs = presentationTimeUs
                 val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-                val rect = ZoomRect(
-                    left = startRect.left + (endRect.left - startRect.left) * progress,
-                    top = startRect.top + (endRect.top - startRect.top) * progress,
-                    right = startRect.right + (endRect.right - startRect.right) * progress,
-                    bottom = startRect.bottom + (endRect.bottom - startRect.bottom) * progress,
-                )
+                val rect =
+                    ZoomRect(
+                        left = startRect.left + (endRect.left - startRect.left) * progress,
+                        top = startRect.top + (endRect.top - startRect.top) * progress,
+                        right = startRect.right + (endRect.right - startRect.right) * progress,
+                        bottom = startRect.bottom + (endRect.bottom - startRect.bottom) * progress,
+                    )
                 val rectW = (rect.right - rect.left).coerceAtLeast(0.05f)
                 val rectH = (rect.bottom - rect.top).coerceAtLeast(0.05f)
                 val scale = (1f / minOf(rectW, rectH)).coerceIn(1f, 8f)
