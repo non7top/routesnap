@@ -134,6 +134,7 @@ fun TimelineScreen(
                 TimelineContent(
                     uiState = uiState,
                     onRemoveSegment = { viewModel.removeSegment(it) },
+                    onNavigateToPhotoReview = onNavigateToPhotoReview,
                     modifier =
                         Modifier
                             .fillMaxSize()
@@ -148,6 +149,7 @@ fun TimelineScreen(
 private fun TimelineContent(
     uiState: TimelineUiState,
     onRemoveSegment: (TripSegment) -> Unit,
+    onNavigateToPhotoReview: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(

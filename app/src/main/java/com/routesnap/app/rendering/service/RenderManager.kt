@@ -193,7 +193,7 @@ class RenderManager
                 } else {
                     baseDuration
                 }
-            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms aspect: ${segment.photoAspectRatio} zoomRect: ${segment.zoomRect}")
+            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms aspect: ${segment.photoAspectRatio} endZoomRect: ${segment.endZoomRect}")
             val mediaItem =
                 MediaItem
                     .Builder()
