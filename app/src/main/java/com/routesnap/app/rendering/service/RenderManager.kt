@@ -26,6 +26,7 @@ import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TransitionType
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
+import com.routesnap.app.domain.model.ZoomRect
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -157,7 +158,7 @@ class RenderManager
                     val transition = effectiveTransition(segment, trip)
                     when (segment.type) {
                         SegmentType.PHOTO -> {
-                            buildPhotoSegment(uri, segment.durationMs, photoIndex, transition)
+                            buildPhotoSegment(segment, photoIndex, transition)
                                 .also { photoIndex++ }
                         }
 
@@ -177,32 +178,52 @@ class RenderManager
         }
 
         private fun buildPhotoSegment(
-            uri: Uri,
-            durationMs: Long,
+            segment: TripSegment,
             photoIndex: Int,
             transition: TransitionParams,
         ): EditedMediaItem {
-            val duration = if (durationMs > 0) durationMs else 5000L
-            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms transition: ${transition.type} ${transition.durationMs}ms")
+            val uri = requireNotNull(segment.uri)
+            val baseDuration = if (segment.durationMs > 0) segment.durationMs else 5000L
+            val duration =
+                if (segment.endZoomRect != null) {
+                    val rectW = segment.endZoomRect.right - segment.endZoomRect.left
+                    val rectH = segment.endZoomRect.bottom - segment.endZoomRect.top
+                    val area = rectW * rectH
+                    if (area > 0f) (baseDuration / area).toLong().coerceAtMost(12000L) else baseDuration
+                } else {
+                    baseDuration
+                }
+            android.util.Log.d("RenderManager", "PHOTO duration: $duration ms aspect: ${segment.photoAspectRatio} endZoomRect: ${segment.endZoomRect}")
             val mediaItem =
                 MediaItem
                     .Builder()
                     .setUri(uri)
                     .setImageDurationMs(duration)
                     .build()
+            val isLandscape = (segment.photoAspectRatio ?: 1f) > 1f
             val videoEffects =
                 buildList {
                     add(portraitPresentation())
                     if (transition.type != TransitionType.NONE) {
                         val durationUs = duration * 1000L
                         val fadeDurationUs = transition.durationMs * 1000L
-                        // Tail fade on all photos; head fade skipped on the first photo so
-                        // the video starts clean. Max alpha 0.75 keeps the transition semi-
-                        // transparent (dissolve feel) rather than cutting to a solid colour.
                         val headUs = if (photoIndex == 0) 0L else fadeDurationUs
                         add(FadeRgbMatrix(durationUs, headUs, fadeDurationUs, transition.type))
                     }
-                    add(kenBurnsZoom(duration, photoIndex))
+                    when {
+                        isLandscape -> {
+                            add(kenBurnsPanHorizontal(duration, photoIndex, segment.photoAspectRatio!!))
+                        }
+
+                        else -> {
+                            // Use stored rects (user-defined or default), falling back to
+                            // computed defaults if the segment predates this feature.
+                            val (defStart, defEnd) = ZoomRect.defaultPair(photoIndex)
+                            val start = segment.startZoomRect ?: defStart
+                            val end = segment.endZoomRect ?: defEnd
+                            add(kenBurnsZoomToRect(start, end, duration))
+                        }
+                    }
                 }
             return EditedMediaItem
                 .Builder(mediaItem)
@@ -274,24 +295,62 @@ class RenderManager
 
         private fun portraitPresentation(): Presentation = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
 
-        private fun kenBurnsZoom(
+        /**
+         * Horizontal pan for landscape photos. Scales so height fills the portrait frame,
+         * then slides left↔right across the overflowing width. Direction alternates by index.
+         */
+        private fun kenBurnsPanHorizontal(
             durationMs: Long,
             index: Int,
+            aspectRatio: Float,
         ): MatrixTransformation {
             val durationUs = durationMs * 1000L
             var startUs = -1L
-            val pan = PAN_DIRECTIONS[index % PAN_DIRECTIONS.size]
+            val panRange = (aspectRatio - 1f).coerceAtLeast(0f)
+            val startX = if (index % 2 == 0) -panRange else panRange
+            val endX = -startX
             return MatrixTransformation { presentationTimeUs ->
                 if (startUs < 0L) startUs = presentationTimeUs
                 val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-                // Scale 1.15→1.5: at minimum scale 1.15 we have 0.15 extra per side,
-                // which always exceeds the ±0.06 translation — no black edges possible.
-                val scale = 1.15f + 0.35f * progress
-                val tx = pan[0] + (pan[2] - pan[0]) * progress
-                val ty = pan[1] + (pan[3] - pan[1]) * progress
+                val tx = startX + (endX - startX) * progress
+                android.graphics.Matrix().apply {
+                    setScale(aspectRatio, aspectRatio)
+                    postTranslate(tx, 0f)
+                }
+            }
+        }
+
+        /**
+         * Ken Burns interpolation from startRect to endRect.
+         * Rects use normalized 0–1 coordinates over the photo; scale capped at 8×.
+         */
+        private fun kenBurnsZoomToRect(
+            startRect: ZoomRect,
+            endRect: ZoomRect,
+            durationMs: Long,
+        ): MatrixTransformation {
+            val durationUs = durationMs * 1000L
+            var startUs = -1L
+            return MatrixTransformation { presentationTimeUs ->
+                if (startUs < 0L) startUs = presentationTimeUs
+                val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
+                val rect =
+                    ZoomRect(
+                        left = startRect.left + (endRect.left - startRect.left) * progress,
+                        top = startRect.top + (endRect.top - startRect.top) * progress,
+                        right = startRect.right + (endRect.right - startRect.right) * progress,
+                        bottom = startRect.bottom + (endRect.bottom - startRect.bottom) * progress,
+                    )
+                val rectW = (rect.right - rect.left).coerceAtLeast(0.05f)
+                val rectH = (rect.bottom - rect.top).coerceAtLeast(0.05f)
+                val scale = (1f / minOf(rectW, rectH)).coerceIn(1f, 8f)
+                val cx = (rect.left + rect.right) - 1f
+                val cy = (rect.top + rect.bottom) - 1f
+                // tx: negative cx → shows right content (x-axis matches Android y-down)
+                // ty: positive cy → shows bottom content (y-axis is flipped in Media3's GL pipeline)
                 android.graphics.Matrix().apply {
                     setScale(scale, scale)
-                    postTranslate(tx, ty)
+                    postTranslate(-cx * scale, cy * scale)
                 }
             }
         }
@@ -369,18 +428,6 @@ class RenderManager
             progressJob?.cancel()
             transformer = null
             _renderState.value = RenderState.Cancelled
-        }
-
-        companion object {
-            // [startX, startY, endX, endY] in NDC units [-1,1]. Values ±0.06 stay within
-            // the 0.1 extra margin that the minimum scale of 1.1 provides on each side.
-            private val PAN_DIRECTIONS =
-                arrayOf(
-                    floatArrayOf(-0.06f, -0.06f, 0.06f, 0.06f), // TL→BR
-                    floatArrayOf(0.06f, -0.06f, -0.06f, 0.06f), // TR→BL
-                    floatArrayOf(-0.06f, 0.06f, 0.06f, -0.06f), // BL→TR
-                    floatArrayOf(0.06f, 0.06f, -0.06f, -0.06f), // BR→TL
-                )
         }
 
         /**

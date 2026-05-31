@@ -6,6 +6,7 @@ import com.routesnap.app.domain.model.Cluster
 import com.routesnap.app.domain.model.LatLng
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TripSegment
+import com.routesnap.app.domain.model.ZoomRect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -251,6 +252,23 @@ class ClusteringAlgorithm(
                         config.photoDurationMs
                     }
 
+                val photoAspectRatio =
+                    if (segmentType == SegmentType.PHOTO &&
+                        metadata.width != null && metadata.height != null && metadata.height > 0
+                    ) {
+                        metadata.width.toFloat() / metadata.height.toFloat()
+                    } else {
+                        null
+                    }
+
+                val isLandscape = (photoAspectRatio ?: 1f) > 1f
+                val (defaultStartRect, defaultEndRect) =
+                    if (segmentType == SegmentType.PHOTO && !isLandscape) {
+                        ZoomRect.defaultPair(order)
+                    } else {
+                        Pair(null, null)
+                    }
+
                 segments.add(
                     TripSegment(
                         type = segmentType,
@@ -261,6 +279,9 @@ class ClusteringAlgorithm(
                         clusterId = clusterId,
                         timestamp = metadata.timestamp,
                         order = order++,
+                        photoAspectRatio = photoAspectRatio,
+                        startZoomRect = defaultStartRect,
+                        endZoomRect = defaultEndRect,
                     ),
                 )
             }

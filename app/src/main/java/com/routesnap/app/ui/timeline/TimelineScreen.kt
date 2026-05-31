@@ -85,6 +85,7 @@ fun TimelineScreen(
     onNavigateBack: () -> Unit,
     onNavigateToStyle: () -> Unit,
     modifier: Modifier = Modifier,
+    onNavigateToPhotoReview: (segmentId: String) -> Unit = {},
     viewModel: TimelineViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -133,6 +134,7 @@ fun TimelineScreen(
                 TimelineContent(
                     uiState = uiState,
                     onRemoveSegment = { viewModel.removeSegment(it) },
+                    onNavigateToPhotoReview = onNavigateToPhotoReview,
                     modifier =
                         Modifier
                             .fillMaxSize()
@@ -147,6 +149,7 @@ fun TimelineScreen(
 private fun TimelineContent(
     uiState: TimelineUiState,
     onRemoveSegment: (TripSegment) -> Unit,
+    onNavigateToPhotoReview: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -165,6 +168,12 @@ private fun TimelineContent(
                     index = index,
                     locationName = uiState.segmentLocations[segment.id],
                     onRemove = { onRemoveSegment(segment) },
+                    onPhotoClick =
+                        if (segment.type == SegmentType.PHOTO) {
+                            { onNavigateToPhotoReview(segment.id) }
+                        } else {
+                            null
+                        },
                 )
             }
         } else {
@@ -185,6 +194,12 @@ private fun TimelineContent(
                         index = segmentIndex,
                         locationName = uiState.segmentLocations[segment.id],
                         onRemove = { onRemoveSegment(segment) },
+                        onPhotoClick =
+                            if (segment.type == SegmentType.PHOTO) {
+                                { onNavigateToPhotoReview(segment.id) }
+                            } else {
+                                null
+                            },
                     )
                 }
             }
@@ -240,9 +255,13 @@ private fun TimelineItem(
     index: Int,
     locationName: String?,
     onRemove: () -> Unit,
+    onPhotoClick: (() -> Unit)? = null,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .then(if (onPhotoClick != null) Modifier.clickable(onClick = onPhotoClick) else Modifier),
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,

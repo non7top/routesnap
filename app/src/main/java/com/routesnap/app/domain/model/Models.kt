@@ -57,6 +57,35 @@ enum class TransitionType(
 }
 
 /**
+ * Normalized rectangle (0–1 coordinates) used as Ken Burns start/end frames.
+ */
+data class ZoomRect(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float,
+) {
+    companion object {
+        val FULL = ZoomRect(0f, 0f, 1f, 1f)
+
+        /**
+         * Default start/end rect pairs reproducing the old 4-direction Ken Burns
+         * (scale 1.15→1.5, ±0.06 NDC pan). y-values differ from x-values because
+         * Media3's GL pipeline flips the y-axis (ty = +cy*scale, not -cy*scale).
+         */
+        private val DEFAULTS =
+            listOf(
+                Pair(ZoomRect(0.09f, 0.04f, 0.96f, 0.91f), ZoomRect(0.15f, 0.19f, 0.81f, 0.85f)), // TL→BR
+                Pair(ZoomRect(0.04f, 0.04f, 0.91f, 0.91f), ZoomRect(0.19f, 0.19f, 0.85f, 0.85f)), // TR→BL
+                Pair(ZoomRect(0.09f, 0.09f, 0.96f, 0.96f), ZoomRect(0.15f, 0.15f, 0.81f, 0.81f)), // BL→TR
+                Pair(ZoomRect(0.04f, 0.09f, 0.91f, 0.96f), ZoomRect(0.19f, 0.15f, 0.85f, 0.81f)), // BR→TL
+            )
+
+        fun defaultPair(index: Int): Pair<ZoomRect, ZoomRect> = DEFAULTS[index % DEFAULTS.size]
+    }
+}
+
+/**
  * Represents a single segment in the trip video timeline
  */
 data class TripSegment(
@@ -74,6 +103,10 @@ data class TripSegment(
     val order: Int = 0,
     val transitionType: TransitionType? = null,
     val transitionDurationMs: Long? = null,
+    val photoAspectRatio: Float? = null,
+    val startZoomRect: ZoomRect? = null,
+    val endZoomRect: ZoomRect? = null,
+    val isReviewed: Boolean = false,
 )
 
 /**

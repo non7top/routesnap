@@ -14,6 +14,7 @@ import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TransitionType
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
+import com.routesnap.app.domain.model.ZoomRect
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.ToJson
@@ -90,6 +91,27 @@ class TripRepository(
     ) {
         val trip = getTripById(tripId) ?: return
         saveTrip(trip.copy(template = template, aspectRatio = aspectRatio, transitionOverride = transitionOverride))
+    }
+
+    suspend fun updateSegmentZoomRects(
+        tripId: String,
+        segmentId: String,
+        startRect: ZoomRect,
+        endRect: ZoomRect,
+    ) {
+        val trip = getTripById(tripId) ?: return
+        val updated =
+            trip.copy(
+                segments =
+                    trip.segments.map { seg ->
+                        if (seg.id == segmentId) {
+                            seg.copy(startZoomRect = startRect, endZoomRect = endRect, isReviewed = true)
+                        } else {
+                            seg
+                        }
+                    },
+            )
+        saveTrip(updated)
     }
 
     /**
