@@ -160,11 +160,16 @@ class TripRepository(
     }
 
     /**
-     * Delete a trip and its private photo copies
+     * Delete a trip, its private photo copies, and the rendered output video.
      */
     suspend fun deleteTrip(tripId: String) {
+        val trip = getTripById(tripId)
         withContext(Dispatchers.IO) {
             projectDir(tripId).deleteRecursively()
+            trip?.outputPath?.let { path ->
+                val file = File(path)
+                if (file.exists()) file.delete()
+            }
         }
         tripManifestDao.deleteTripById(tripId)
     }
