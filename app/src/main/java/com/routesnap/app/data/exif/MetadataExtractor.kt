@@ -189,16 +189,24 @@ class MetadataExtractor(
         }
 
     /**
-     * Extract image dimensions from EXIF
+     * Extract image dimensions from EXIF, swapping width/height for 90°/270° rotations
+     * so that the returned values reflect the displayed (post-rotation) orientation.
      */
     private fun extractDimensions(
         exif: ExifInterface,
     ): Pair<Int?, Int?> {
-        val width =
+        val rawWidth =
             exif.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH, -1).takeIf { it != -1 }
-        val height =
+        val rawHeight =
             exif.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH, -1).takeIf { it != -1 }
-        return width to height
+        val orientation =
+            exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        val rotated =
+            orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
+                orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
+                orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
+                orientation == ExifInterface.ORIENTATION_TRANSVERSE
+        return if (rotated) rawHeight to rawWidth else rawWidth to rawHeight
     }
 
     /**
