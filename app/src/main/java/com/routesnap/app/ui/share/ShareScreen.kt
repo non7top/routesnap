@@ -2,11 +2,13 @@ package com.routesnap.app.ui.share
 
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,6 +20,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
@@ -25,7 +28,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -38,6 +43,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -66,17 +73,28 @@ fun ShareScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showShareSheet by remember { mutableStateOf(false) }
+    var isLooping by remember { mutableStateOf(true) }
+    var playbackSpeed by remember { mutableFloatStateOf(1f) }
 
     val exoPlayer =
         remember(uiState.videoFile) {
             uiState.videoFile?.let { file ->
                 ExoPlayer.Builder(context).build().apply {
                     setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+                    repeatMode = Player.REPEAT_MODE_ONE
                     prepare()
-                    playWhenReady = false
+                    playWhenReady = true
                 }
             }
         }
+
+    LaunchedEffect(isLooping) {
+        exoPlayer?.repeatMode = if (isLooping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+    }
+
+    LaunchedEffect(playbackSpeed) {
+        exoPlayer?.setPlaybackSpeed(playbackSpeed)
+    }
 
     DisposableEffect(uiState.videoFile) {
         onDispose { exoPlayer?.release() }
@@ -181,6 +199,43 @@ fun ShareScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                    }
+                }
+
+                // Playback controls: speed + loop
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    listOf(0.5f, 1f, 1.5f, 2f).forEach { speed ->
+                        FilterChip(
+                            selected = playbackSpeed == speed,
+                            onClick = { playbackSpeed = speed },
+                            label = {
+                                Text(
+                                    if (speed == 1f) "1×" else "$speed×",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            },
+                            modifier = Modifier.height(32.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    IconButton(onClick = { isLooping = !isLooping }) {
+                        Icon(
+                            imageVector = Icons.Default.Repeat,
+                            contentDescription = if (isLooping) "Loop on" else "Loop off",
+                            tint =
+                                if (isLooping) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                },
+                        )
                     }
                 }
 
