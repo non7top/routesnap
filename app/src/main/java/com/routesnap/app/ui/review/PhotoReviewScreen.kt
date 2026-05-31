@@ -145,7 +145,7 @@ fun PhotoReviewScreen(
                         AsyncImage(
                             model = uri,
                             contentDescription = null,
-                            contentScale = ContentScale.FillBounds,
+                            contentScale = ContentScale.Fit,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
