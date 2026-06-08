@@ -1,5 +1,10 @@
 package com.routesnap.app.ui.style
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,15 +16,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Crop
-import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
@@ -41,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -56,10 +60,12 @@ data class StyleUiState(
     val selectedAspectRatio: AspectRatio = AspectRatio.PORTRAIT,
     val selectedTemplate: TemplatePreset = TemplatePreset.BALANCED,
     val selectedTransition: TransitionType? = null,
-    val musicSelected: Boolean = false,
+    val musicUri: android.net.Uri? = null,
     val musicTitle: String? = null,
     val isProcessing: Boolean = false,
-)
+) {
+    val musicSelected: Boolean get() = musicUri != null
+}
 
 /**
  * Style Screen - Select aspect ratio, template, and music
@@ -73,6 +79,20 @@ fun StyleScreen(
     viewModel: StyleViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    val musicPickerLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val displayName =
+                    context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                        ?.use { cursor ->
+                            if (cursor.moveToFirst()) cursor.getString(0) else null
+                        } ?: uri.lastPathSegment ?: "Music"
+                viewModel.setMusicUri(uri, displayName)
+            }
+        }
 
     RouteSnapTheme {
         Scaffold(
@@ -144,7 +164,8 @@ fun StyleScreen(
                     MusicSelector(
                         musicSelected = uiState.musicSelected,
                         musicTitle = uiState.musicTitle,
-                        onMusicSelect = { viewModel.selectMusic() },
+                        onMusicSelect = { musicPickerLauncher.launch(arrayOf("audio/*")) },
+                        onMusicRemove = { viewModel.removeMusic() },
                     )
                 }
 
@@ -380,6 +401,7 @@ private fun MusicSelector(
     musicSelected: Boolean,
     musicTitle: String?,
     onMusicSelect: () -> Unit,
+    onMusicRemove: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -393,11 +415,12 @@ private fun MusicSelector(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
+                modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -411,28 +434,23 @@ private fun MusicSelector(
                         text = if (musicSelected) musicTitle ?: "Music Selected" else "Select Music",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 1,
                     )
-                    if (musicSelected) {
-                        Text(
-                            text = "Tap to change",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        Text(
-                            text = "Add background music to your video",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Text(
+                        text = if (musicSelected) "Tap to change" else "Add background music to your video",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             if (musicSelected) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+                IconButton(onClick = onMusicRemove) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove music",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

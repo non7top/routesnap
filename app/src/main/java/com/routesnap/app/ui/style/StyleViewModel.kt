@@ -1,5 +1,6 @@
 package com.routesnap.app.ui.style
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -26,6 +27,24 @@ class StyleViewModel
         private val _uiState = MutableStateFlow(StyleUiState())
         val uiState: StateFlow<StyleUiState> = _uiState.asStateFlow()
 
+        init {
+            if (tripId != null) loadExistingStyle(tripId)
+        }
+
+        private fun loadExistingStyle(id: String) {
+            viewModelScope.launch {
+                val trip = tripRepository.getTripById(id) ?: return@launch
+                _uiState.value =
+                    StyleUiState(
+                        selectedAspectRatio = trip.aspectRatio,
+                        selectedTemplate = trip.template,
+                        selectedTransition = trip.transitionOverride,
+                        musicUri = trip.musicUri,
+                        musicTitle = trip.musicUri?.lastPathSegment?.substringAfterLast('/'),
+                    )
+            }
+        }
+
         fun updateAspectRatio(aspectRatio: AspectRatio) {
             _uiState.value = _uiState.value.copy(selectedAspectRatio = aspectRatio)
         }
@@ -38,12 +57,15 @@ class StyleViewModel
             _uiState.value = _uiState.value.copy(selectedTransition = transition)
         }
 
-        fun selectMusic() {
-            _uiState.value =
-                _uiState.value.copy(
-                    musicSelected = !_uiState.value.musicSelected,
-                    musicTitle = if (!_uiState.value.musicSelected) "Default Track" else null,
-                )
+        fun setMusicUri(
+            uri: Uri,
+            displayName: String,
+        ) {
+            _uiState.value = _uiState.value.copy(musicUri = uri, musicTitle = displayName)
+        }
+
+        fun removeMusic() {
+            _uiState.value = _uiState.value.copy(musicUri = null, musicTitle = null)
         }
 
         fun saveAndRender(onReady: () -> Unit) {
@@ -58,6 +80,8 @@ class StyleViewModel
                     _uiState.value.selectedTemplate,
                     _uiState.value.selectedAspectRatio,
                     _uiState.value.selectedTransition,
+                    _uiState.value.musicUri,
+                    0f,
                 )
                 onReady()
             }
