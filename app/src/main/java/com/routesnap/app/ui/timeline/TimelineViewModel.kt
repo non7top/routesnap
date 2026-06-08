@@ -158,11 +158,14 @@ class TimelineViewModel
             locations: Map<String, String>,
         ): String? {
             val trip = tripRepository.getTripById(tripId)
-            val isAutoName =
-                trip != null &&
-                    Regex("""^\w{3} \d{1,2}(, \d{4})?$""").matches(trip.name)
-            if (!isAutoName) return null
+            if (trip == null || !Regex("""^\w{3} \d{1,2}(, \d{4})?$""").matches(trip.name)) return null
+            return buildCityDateName(segments, locations)
+        }
 
+        private fun buildCityDateName(
+            segments: List<TripSegment>,
+            locations: Map<String, String>,
+        ): String? {
             val city =
                 segments
                     .filter { it.type == SegmentType.PHOTO }
