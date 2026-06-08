@@ -86,22 +86,26 @@ class TripRepository(
         }
     }
 
+    data class TripStyle(
+        val template: TemplatePreset,
+        val aspectRatio: AspectRatio,
+        val transitionOverride: TransitionType?,
+        val musicUri: Uri?,
+        val musicVolumeDb: Float,
+    )
+
     suspend fun updateTripStyle(
         tripId: String,
-        template: TemplatePreset,
-        aspectRatio: AspectRatio,
-        transitionOverride: TransitionType?,
-        musicUri: Uri?,
-        musicVolumeDb: Float,
+        style: TripStyle,
     ) {
         val trip = getTripById(tripId) ?: return
         saveTrip(
             trip.copy(
-                template = template,
-                aspectRatio = aspectRatio,
-                transitionOverride = transitionOverride,
-                musicUri = musicUri,
-                musicVolumeDb = musicVolumeDb,
+                template = style.template,
+                aspectRatio = style.aspectRatio,
+                transitionOverride = style.transitionOverride,
+                musicUri = style.musicUri,
+                musicVolumeDb = style.musicVolumeDb,
             ),
         )
     }

@@ -77,11 +77,13 @@ class StyleViewModel
             viewModelScope.launch {
                 tripRepository.updateTripStyle(
                     id,
-                    _uiState.value.selectedTemplate,
-                    _uiState.value.selectedAspectRatio,
-                    _uiState.value.selectedTransition,
-                    _uiState.value.musicUri,
-                    0f,
+                    TripRepository.TripStyle(
+                        template = _uiState.value.selectedTemplate,
+                        aspectRatio = _uiState.value.selectedAspectRatio,
+                        transitionOverride = _uiState.value.selectedTransition,
+                        musicUri = _uiState.value.musicUri,
+                        musicVolumeDb = 0f,
+                    ),
                 )
                 onReady()
             }

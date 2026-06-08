@@ -193,7 +193,7 @@ class RenderManager
                     .Builder(MediaItem.fromUri(musicUri))
                     .setRemoveVideo(true)
                     .build()
-            return EditedMediaItemSequence(listOf(musicItem), /* isLooping= */ true)
+            return EditedMediaItemSequence(listOf(musicItem), true)
         }
 
         private fun buildPhotoSegment(

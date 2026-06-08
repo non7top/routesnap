@@ -86,7 +86,8 @@ fun StyleScreen(
             if (uri != null) {
                 context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 val displayName =
-                    context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                    context.contentResolver
+                        .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
                         ?.use { cursor ->
                             if (cursor.moveToFirst()) cursor.getString(0) else null
                         } ?: uri.lastPathSegment ?: "Music"
