@@ -171,10 +171,29 @@ class RenderManager
                         }
                     }
                 }
-            val sequence = EditedMediaItemSequence(editedMediaItems)
+            val mainSequence = EditedMediaItemSequence(editedMediaItems)
+            val sequences =
+                if (trip.musicUri != null) {
+                    listOf(mainSequence, buildMusicSequence(trip.musicUri))
+                } else {
+                    listOf(mainSequence)
+                }
             return Composition
-                .Builder(listOf(sequence))
+                .Builder(sequences)
                 .build()
+        }
+
+        /**
+         * Builds a looping audio-only sequence for background music.
+         * Media3 stops the music automatically when the main (first) sequence ends.
+         */
+        private fun buildMusicSequence(musicUri: android.net.Uri): EditedMediaItemSequence {
+            val musicItem =
+                EditedMediaItem
+                    .Builder(MediaItem.fromUri(musicUri))
+                    .setRemoveVideo(true)
+                    .build()
+            return EditedMediaItemSequence(listOf(musicItem), /* isLooping= */ true)
         }
 
         private fun buildPhotoSegment(

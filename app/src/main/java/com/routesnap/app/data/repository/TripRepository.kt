@@ -91,9 +91,19 @@ class TripRepository(
         template: TemplatePreset,
         aspectRatio: AspectRatio,
         transitionOverride: TransitionType?,
+        musicUri: Uri?,
+        musicVolumeDb: Float,
     ) {
         val trip = getTripById(tripId) ?: return
-        saveTrip(trip.copy(template = template, aspectRatio = aspectRatio, transitionOverride = transitionOverride))
+        saveTrip(
+            trip.copy(
+                template = template,
+                aspectRatio = aspectRatio,
+                transitionOverride = transitionOverride,
+                musicUri = musicUri,
+                musicVolumeDb = musicVolumeDb,
+            ),
+        )
     }
 
     suspend fun updateSegmentZoomRects(

@@ -181,6 +181,7 @@ data class TripManifest(
     val template: TemplatePreset = TemplatePreset.BALANCED,
     val transitionOverride: TransitionType? = null,
     val musicUri: Uri? = null,
+    val musicVolumeDb: Float = 0f,
     val status: RenderStatus = RenderStatus.DRAFT,
     val outputPath: String? = null,
 ) {
