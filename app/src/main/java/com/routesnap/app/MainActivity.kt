@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.routesnap.app.ui.picker.PhotoPickerScreen
+import com.routesnap.app.ui.projects.ProjectListScreen
 import com.routesnap.app.ui.render.RenderScreen
 import com.routesnap.app.ui.review.PhotoReviewScreen
 import com.routesnap.app.ui.share.ShareScreen
@@ -53,10 +54,28 @@ fun RouteSnapNavGraph(
 
     NavHost(
         navController = navController,
-        startDestination = "picker",
+        startDestination = "projects",
         modifier = modifier,
     ) {
+        composable("projects") {
+            ProjectListScreen(
+                onNewTrip = { navController.navigate("picker") },
+                onOpenTrip = { tripId -> navController.navigate("picker/$tripId") },
+            )
+        }
+
         composable("picker") {
+            PhotoPickerScreen(
+                onNavigateToTimeline = { tripId ->
+                    navController.navigate("timeline/$tripId")
+                },
+            )
+        }
+
+        composable(
+            route = "picker/{tripId}",
+            arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
+        ) {
             PhotoPickerScreen(
                 onNavigateToTimeline = { tripId ->
                     navController.navigate("timeline/$tripId")
@@ -155,7 +174,7 @@ fun RouteSnapNavGraph(
             ShareScreen(
                 videoPath = videoPath,
                 onNavigateHome = {
-                    navController.popBackStack("picker", inclusive = false)
+                    navController.popBackStack("projects", inclusive = false)
                 },
             )
         }

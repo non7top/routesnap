@@ -4,12 +4,17 @@ import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.routesnap.app.data.repository.TripRepository
+import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,11 +61,38 @@ data class SelectedMediaMetadata(
 class PickerViewModel
     @Inject
     constructor(
+        savedStateHandle: SavedStateHandle,
         private val tripRepository: TripRepository,
         private val contentResolver: ContentResolver,
     ) : ViewModel() {
+        private val existingTripId: String? = savedStateHandle["tripId"]
+
+        // Track URIs at load time so we can detect if the user actually changed photos
+        private var originalUris: Set<String> = emptySet()
+
         private val _uiState = MutableStateFlow(PickerUiState())
         val uiState: StateFlow<PickerUiState> = _uiState.asStateFlow()
+
+        init {
+            if (existingTripId != null) loadExistingTrip(existingTripId)
+        }
+
+        private fun loadExistingTrip(tripId: String) {
+            viewModelScope.launch {
+                val trip = tripRepository.getTripById(tripId) ?: return@launch
+                val photoUris =
+                    trip.segments
+                        .filter { it.type == SegmentType.PHOTO && it.uri != null }
+                        .map { it.uri!! }
+                originalUris = photoUris.map { it.toString() }.toSet()
+                _uiState.value =
+                    _uiState.value.copy(
+                        tripName = trip.name,
+                        selectedUris = photoUris,
+                    )
+                extractMetadataForSelected()
+            }
+        }
 
         /**
          * Add selected URIs from Photo Picker
@@ -194,14 +226,23 @@ class PickerViewModel
          */
         suspend fun createTrip(): TripManifest? {
             val uris = _uiState.value.selectedUris
-            val name = _uiState.value.tripName.ifEmpty { "New Trip" }
+            val dateName = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date())
+            val name = _uiState.value.tripName.ifEmpty { dateName }
 
-            if (uris.isEmpty()) {
-                return null
-            }
+            if (uris.isEmpty()) return null
 
             return try {
-                tripRepository.createTripFromMedia(name, uris)
+                if (existingTripId != null) {
+                    val currentUris = uris.map { it.toString() }.toSet()
+                    if (currentUris == originalUris) {
+                        // Nothing changed — return the existing trip without re-processing
+                        tripRepository.getTripById(existingTripId)
+                    } else {
+                        tripRepository.updateTripMedia(existingTripId, name, uris)
+                    }
+                } else {
+                    tripRepository.createTripFromMedia(name, uris)
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message ?: "Failed to create trip")
                 null

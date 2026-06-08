@@ -40,9 +40,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideTripRepository(
+        @ApplicationContext context: Context,
         tripManifestDao: TripManifestDao,
         contentResolver: ContentResolver,
-    ): TripRepository = TripRepository(tripManifestDao, contentResolver)
+    ): TripRepository = TripRepository(context, tripManifestDao, contentResolver)
 
     @Provides
     @Singleton

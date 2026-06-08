@@ -134,7 +134,49 @@ class TimelineViewModel
                         segmentLocations = locations,
                         clusters = updatedClusters,
                     )
+
+                autoRenameTrip(segments, locations)
             }
+        }
+
+        /**
+         * If the trip still has an auto-generated date name, rename it to "City · Date"
+         * using the first photo's city and timestamp.
+         */
+        private suspend fun autoRenameTrip(
+            segments: List<TripSegment>,
+            locations: Map<String, String>,
+        ) {
+            val tripId = _uiState.value.tripId ?: return
+            val newName = buildAutoName(tripId, segments, locations) ?: return
+            tripRepository.updateTripName(tripId, newName)
+        }
+
+        private suspend fun buildAutoName(
+            tripId: String,
+            segments: List<TripSegment>,
+            locations: Map<String, String>,
+        ): String? {
+            val trip = tripRepository.getTripById(tripId)
+            if (trip == null || !Regex("""^\w{3} \d{1,2}(, \d{4})?$""").matches(trip.name)) return null
+            return buildCityDateName(segments, locations)
+        }
+
+        private fun buildCityDateName(
+            segments: List<TripSegment>,
+            locations: Map<String, String>,
+        ): String? {
+            val city =
+                segments
+                    .filter { it.type == SegmentType.PHOTO }
+                    .firstNotNullOfOrNull { seg -> locations[seg.id]?.substringBefore(",")?.trim() }
+                    ?: return null
+            val dateStr =
+                segments
+                    .filter { it.type == SegmentType.PHOTO }
+                    .firstNotNullOfOrNull { it.timestamp }
+                    ?.let { SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(it)) }
+            return if (dateStr != null) "$city · $dateStr" else city
         }
 
         /**
