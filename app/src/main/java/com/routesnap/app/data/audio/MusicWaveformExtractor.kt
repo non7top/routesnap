@@ -58,12 +58,11 @@ object MusicWaveformExtractor {
         val totalSamples = (durationMs * sampleRate / 1000L).coerceAtLeast(1L)
         val samplesPerBar = (totalSamples / barCount).coerceAtLeast(1L)
 
-        val sumSq = DoubleArray(barCount)
-        val counts = LongArray(barCount)
-        streamDecode(format, extractor, sumSq, counts, barCount, samplesPerBar, channels)
+        val acc = AccumState(barCount, samplesPerBar, channels)
+        streamDecode(format, extractor, acc)
         extractor.release()
 
-        return Pair(normalise(sumSq, counts, barCount), durationMs)
+        return Pair(normalise(acc.sumSq, acc.counts, barCount), durationMs)
     }
 
     private fun findAudioTrack(extractor: MediaExtractor): Int? =
@@ -74,14 +73,19 @@ object MusicWaveformExtractor {
                 ?.startsWith("audio/") == true
         }
 
+    private class AccumState(
+        val barCount: Int,
+        val samplesPerBar: Long,
+        val channels: Int,
+    ) {
+        val sumSq = DoubleArray(barCount)
+        val counts = LongArray(barCount)
+    }
+
     private fun streamDecode(
         format: MediaFormat,
         extractor: MediaExtractor,
-        sumSq: DoubleArray,
-        counts: LongArray,
-        barCount: Int,
-        samplesPerBar: Long,
-        channels: Int,
+        acc: AccumState,
     ) {
         val mime = format.getString(MediaFormat.KEY_MIME)!!
         val codec = MediaCodec.createDecoderByType(mime)
@@ -99,7 +103,7 @@ object MusicWaveformExtractor {
             if (idx >= 0) {
                 val buf = codec.getOutputBuffer(idx)!!
                 buf.order(ByteOrder.LITTLE_ENDIAN)
-                totalFrames = drainBuffer(buf, channels, totalFrames, samplesPerBar, barCount, sumSq, counts)
+                totalFrames = drainBuffer(buf, acc, totalFrames)
                 codec.releaseOutputBuffer(idx, false)
                 if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outputDone = true
             }
@@ -111,16 +115,12 @@ object MusicWaveformExtractor {
 
     private fun drainBuffer(
         buf: ByteBuffer,
-        channels: Int,
+        acc: AccumState,
         startFrame: Long,
-        samplesPerBar: Long,
-        barCount: Int,
-        sumSq: DoubleArray,
-        counts: LongArray,
     ): Long {
         var frame = startFrame
-        while (buf.remaining() >= channels * 2) {
-            accumFrame(buf, channels, frame, samplesPerBar, barCount, sumSq, counts)
+        while (buf.remaining() >= acc.channels * 2) {
+            accumFrame(buf, acc, frame)
             frame++
         }
         return frame
@@ -128,19 +128,15 @@ object MusicWaveformExtractor {
 
     private fun accumFrame(
         buf: ByteBuffer,
-        channels: Int,
+        acc: AccumState,
         frame: Long,
-        samplesPerBar: Long,
-        barCount: Int,
-        sumSq: DoubleArray,
-        counts: LongArray,
     ) {
         var mix = 0.0
-        repeat(channels) { mix += buf.short / 32768.0 }
-        val s = mix / channels
-        val bar = (frame / samplesPerBar).toInt().coerceIn(0, barCount - 1)
-        sumSq[bar] += s * s
-        counts[bar]++
+        repeat(acc.channels) { mix += buf.short / 32768.0 }
+        val s = mix / acc.channels
+        val bar = (frame / acc.samplesPerBar).toInt().coerceIn(0, acc.barCount - 1)
+        acc.sumSq[bar] += s * s
+        acc.counts[bar]++
     }
 
     private fun feedInput(
