@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Slideshow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -56,15 +57,25 @@ import com.routesnap.app.ui.theme.RouteSnapTheme
 /**
  * UI State for the style screen
  */
+@Suppress("LongParameterList")
 data class StyleUiState(
     val selectedAspectRatio: AspectRatio = AspectRatio.PORTRAIT,
     val selectedTemplate: TemplatePreset = TemplatePreset.BALANCED,
     val selectedTransition: TransitionType? = null,
-    val musicUri: android.net.Uri? = null,
+    val musicUri: Uri? = null,
     val musicTitle: String? = null,
     val isProcessing: Boolean = false,
+    val waveform: List<Float> = emptyList(),
+    val isLoadingWaveform: Boolean = false,
+    val trackDurationMs: Long = 0,
+    val musicStartMs: Long = 0,
+    val musicEndMs: Long? = null,
+    val musicFadeInMs: Long = 1000,
+    val musicFadeOutMs: Long = 2000,
+    val videoDurationMs: Long = 0,
 ) {
     val musicSelected: Boolean get() = musicUri != null
+    val effectiveEndMs: Long get() = musicEndMs ?: trackDurationMs
 }
 
 /**
@@ -168,6 +179,23 @@ fun StyleScreen(
                         onMusicSelect = { musicPickerLauncher.launch(arrayOf("audio/*")) },
                         onMusicRemove = { viewModel.removeMusic() },
                     )
+                    if (uiState.musicSelected) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        if (uiState.isLoadingWaveform) {
+                            CircularProgressIndicator(modifier = Modifier.padding(8.dp))
+                        } else if (uiState.trackDurationMs > 0) {
+                            MusicTrimBar(
+                                waveform = uiState.waveform,
+                                trackDurationMs = uiState.trackDurationMs,
+                                videoDurationMs = uiState.videoDurationMs,
+                                startMs = uiState.musicStartMs,
+                                endMs = uiState.effectiveEndMs,
+                                onStartChanged = { viewModel.setMusicTrim(it, uiState.effectiveEndMs) },
+                                onEndChanged = { viewModel.setMusicTrim(uiState.musicStartMs, it) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
                 }
 
                 // Preview section

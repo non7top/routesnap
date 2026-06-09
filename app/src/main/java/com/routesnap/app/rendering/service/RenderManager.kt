@@ -20,6 +20,7 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
+import com.routesnap.app.rendering.audio.FadeAudioProcessor
 import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TemplatePreset
@@ -174,7 +175,7 @@ class RenderManager
             val mainSequence = EditedMediaItemSequence(editedMediaItems)
             val sequences =
                 if (trip.musicUri != null) {
-                    listOf(mainSequence, buildMusicSequence(trip.musicUri))
+                    listOf(mainSequence, buildMusicSequence(trip))
                 } else {
                     listOf(mainSequence)
                 }
@@ -184,16 +185,62 @@ class RenderManager
         }
 
         /**
-         * Builds a looping audio-only sequence for background music.
-         * Media3 stops the music automatically when the main (first) sequence ends.
+         * Builds a music sequence that:
+         *  - clips the track to [startMs, endMs]
+         *  - repeats the clip enough times to cover the full video duration
+         *  - applies fade-in on the first item and fade-out on the last item
          */
-        private fun buildMusicSequence(musicUri: android.net.Uri): EditedMediaItemSequence {
-            val musicItem =
-                EditedMediaItem
-                    .Builder(MediaItem.fromUri(musicUri))
-                    .setRemoveVideo(true)
-                    .build()
-            return EditedMediaItemSequence(listOf(musicItem), true)
+        private fun buildMusicSequence(trip: TripManifest): EditedMediaItemSequence {
+            val musicUri = requireNotNull(trip.musicUri)
+            val startMs = trip.musicStartMs
+            val endMs = trip.musicEndMs ?: 0L
+            val clipMs = (endMs - startMs).coerceAtLeast(1L)
+            val videoMs = trip.totalDurationMs.coerceAtLeast(1L)
+            val repeatCount = ((videoMs + clipMs - 1) / clipMs).toInt().coerceAtLeast(1)
+
+            val items =
+                (0 until repeatCount).map { index ->
+                    val isFirst = index == 0
+                    val isLast = index == repeatCount - 1
+
+                    val lastClipMs =
+                        if (isLast) {
+                            val usedMs = (repeatCount - 1) * clipMs
+                            (videoMs - usedMs).coerceIn(1L, clipMs)
+                        } else {
+                            clipMs
+                        }
+                    val actualEndMs = startMs + lastClipMs
+
+                    val fadeIn = if (isFirst) trip.musicFadeInMs else 0L
+                    val fadeOut = if (isLast) trip.musicFadeOutMs else 0L
+
+                    val clipping =
+                        MediaItem.ClippingConfiguration
+                            .Builder()
+                            .setStartPositionMs(startMs)
+                            .setEndPositionMs(actualEndMs)
+                            .build()
+
+                    val effects =
+                        Effects(
+                            listOf(FadeAudioProcessor(fadeIn, fadeOut, lastClipMs)),
+                            emptyList(),
+                        )
+
+                    EditedMediaItem
+                        .Builder(
+                            MediaItem
+                                .Builder()
+                                .setUri(musicUri)
+                                .setClippingConfiguration(clipping)
+                                .build(),
+                        ).setRemoveVideo(true)
+                        .setEffects(effects)
+                        .build()
+                }
+
+            return EditedMediaItemSequence(items)
         }
 
         private fun buildPhotoSegment(

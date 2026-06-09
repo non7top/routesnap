@@ -92,6 +92,10 @@ class TripRepository(
         val transitionOverride: TransitionType?,
         val musicUri: Uri?,
         val musicVolumeDb: Float,
+        val musicStartMs: Long,
+        val musicEndMs: Long?,
+        val musicFadeInMs: Long,
+        val musicFadeOutMs: Long,
     )
 
     suspend fun updateTripStyle(
@@ -106,6 +110,10 @@ class TripRepository(
                 transitionOverride = style.transitionOverride,
                 musicUri = style.musicUri,
                 musicVolumeDb = style.musicVolumeDb,
+                musicStartMs = style.musicStartMs,
+                musicEndMs = style.musicEndMs,
+                musicFadeInMs = style.musicFadeInMs,
+                musicFadeOutMs = style.musicFadeOutMs,
             ),
         )
     }

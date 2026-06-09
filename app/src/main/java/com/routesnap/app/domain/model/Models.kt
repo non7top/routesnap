@@ -182,6 +182,10 @@ data class TripManifest(
     val transitionOverride: TransitionType? = null,
     val musicUri: Uri? = null,
     val musicVolumeDb: Float = 0f,
+    val musicStartMs: Long = 0,
+    val musicEndMs: Long? = null,
+    val musicFadeInMs: Long = 1000,
+    val musicFadeOutMs: Long = 2000,
     val status: RenderStatus = RenderStatus.DRAFT,
     val outputPath: String? = null,
 ) {
