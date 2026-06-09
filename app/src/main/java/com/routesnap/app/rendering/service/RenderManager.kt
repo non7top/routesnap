@@ -363,7 +363,11 @@ class RenderManager
 
         /**
          * Horizontal pan for landscape photos. Scales so height fills the portrait frame,
-         * then slides left↔right across the overflowing width. Direction alternates by index.
+         * then slides left↔right (direction alternates by index) with a subtle zoom ramp
+         * so each photo feels dynamic rather than a flat slide.
+         *
+         * Even-indexed photos zoom in (1.0→1.1×) while odd-indexed zoom out (1.1→1.0×),
+         * giving adjacent photos opposite motion that avoids a monotonous rhythm.
          */
         private fun kenBurnsPanHorizontal(
             durationMs: Long,
@@ -375,12 +379,16 @@ class RenderManager
             val panRange = (aspectRatio - 1f).coerceAtLeast(0f)
             val startX = if (index % 2 == 0) -panRange else panRange
             val endX = -startX
+            val zoomStart = if (index % 2 == 0) 1.00f else 1.10f
+            val zoomEnd = if (index % 2 == 0) 1.10f else 1.00f
             return MatrixTransformation { presentationTimeUs ->
                 if (startUs < 0L) startUs = presentationTimeUs
                 val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-                val tx = startX + (endX - startX) * progress
+                val zoom = zoomStart + (zoomEnd - zoomStart) * progress
+                val scale = aspectRatio * zoom
+                val tx = (startX + (endX - startX) * progress) * zoom
                 android.graphics.Matrix().apply {
-                    setScale(aspectRatio, aspectRatio)
+                    setScale(scale, scale)
                     postTranslate(tx, 0f)
                 }
             }
