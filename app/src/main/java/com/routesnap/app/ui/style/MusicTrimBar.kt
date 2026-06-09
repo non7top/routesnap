@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -48,8 +49,8 @@ fun MusicTrimBar(
     videoDurationMs: Long,
     startMs: Long,
     endMs: Long,
-    onStartChanged: (Long) -> Unit,
-    onEndChanged: (Long) -> Unit,
+    onStartChange: (Long) -> Unit,
+    onEndChange: (Long) -> Unit,
     modifier: Modifier = Modifier,
     handleWidthDp: Dp = 12.dp,
 ) {
@@ -59,12 +60,12 @@ fun MusicTrimBar(
     val currentStart by rememberUpdatedState(startMs)
     val currentEnd by rememberUpdatedState(endMs)
     val currentTrackDurationMs by rememberUpdatedState(trackDurationMs)
-    val currentOnStartChanged by rememberUpdatedState(onStartChanged)
-    val currentOnEndChanged by rememberUpdatedState(onEndChanged)
+    val currentOnStartChange by rememberUpdatedState(onStartChange)
+    val currentOnEndChange by rememberUpdatedState(onEndChange)
 
-    var canvasWidth by remember { mutableStateOf(0f) }
+    var canvasWidth by remember { mutableFloatStateOf(0f) }
     var dragZone by remember { mutableStateOf(DragZone.NONE) }
-    var accumulatedDragX by remember { mutableStateOf(0f) }
+    var accumulatedDragX by remember { mutableFloatStateOf(0f) }
 
     val barDim = Color(0xFF90CAF9)
     val barBright = Color(0xFF42A5F5)
@@ -111,21 +112,26 @@ fun MusicTrimBar(
                                         val newStart =
                                             (currentStart + deltaMs)
                                                 .coerceIn(0, currentEnd - MIN_SELECTION_MS)
-                                        currentOnStartChanged(newStart)
+                                        currentOnStartChange(newStart)
                                     }
+
                                     DragZone.END_HANDLE -> {
                                         val newEnd =
                                             (currentEnd + deltaMs)
                                                 .coerceIn(currentStart + MIN_SELECTION_MS, currentTrackDurationMs)
-                                        currentOnEndChanged(newEnd)
+                                        currentOnEndChange(newEnd)
                                     }
+
                                     DragZone.MIDDLE -> {
                                         val selMs = currentEnd - currentStart
                                         val newStart = (currentStart + deltaMs).coerceIn(0, currentTrackDurationMs - selMs)
-                                        currentOnStartChanged(newStart)
-                                        currentOnEndChanged(newStart + selMs)
+                                        currentOnStartChange(newStart)
+                                        currentOnEndChange(newStart + selMs)
                                     }
-                                    DragZone.NONE -> Unit
+
+                                    DragZone.NONE -> {
+                                        // no-op
+                                    }
                                 }
                             },
                             onDragEnd = { dragZone = DragZone.NONE },

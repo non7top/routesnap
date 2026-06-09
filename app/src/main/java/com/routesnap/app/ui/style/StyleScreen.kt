@@ -190,8 +190,8 @@ fun StyleScreen(
                                 videoDurationMs = uiState.videoDurationMs,
                                 startMs = uiState.musicStartMs,
                                 endMs = uiState.effectiveEndMs,
-                                onStartChanged = { viewModel.setMusicTrim(it, uiState.effectiveEndMs) },
-                                onEndChanged = { viewModel.setMusicTrim(uiState.musicStartMs, it) },
+                                onStartChange = { viewModel.setMusicTrim(it, uiState.effectiveEndMs) },
+                                onEndChange = { viewModel.setMusicTrim(uiState.musicStartMs, it) },
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }

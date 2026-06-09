@@ -6,9 +6,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import android.util.Log
-import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlin.math.abs
 import kotlin.math.sqrt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -20,6 +18,7 @@ import kotlinx.coroutines.withContext
 object MusicWaveformExtractor {
     private const val TAG = "MusicWaveformExtractor"
     private const val TIMEOUT_US = 10_000L
+    private const val MAX_PCM_SAMPLES = 48_000 * 2 * 300
 
     suspend fun extract(
         context: Context,
@@ -42,82 +41,103 @@ object MusicWaveformExtractor {
     ): Pair<List<Float>, Long> {
         val extractor = MediaExtractor()
         extractor.setDataSource(context, uri, null)
-
-        val trackIndex =
-            (0 until extractor.trackCount).firstOrNull { i ->
-                extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME)
-                    ?.startsWith("audio/") == true
-            } ?: return Pair(List(barCount) { 0.3f }, 0L)
+        val trackIndex = findAudioTrack(extractor) ?: return Pair(List(barCount) { 0.3f }, 0L)
 
         extractor.selectTrack(trackIndex)
         val format = extractor.getTrackFormat(trackIndex)
-        val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else 0L
-        val durationMs = durationUs / 1000
+        val durationMs =
+            if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) / 1000 else 0L
 
+        val pcm = decodePcm(format, extractor)
+        extractor.release()
+
+        return Pair(rmsWaveform(pcm, barCount), durationMs)
+    }
+
+    private fun findAudioTrack(extractor: MediaExtractor): Int? =
+        (0 until extractor.trackCount).firstOrNull { i ->
+            extractor
+                .getTrackFormat(i)
+                .getString(MediaFormat.KEY_MIME)
+                ?.startsWith("audio/") == true
+        }
+
+    private fun decodePcm(
+        format: MediaFormat,
+        extractor: MediaExtractor,
+    ): List<Short> {
         val mime = format.getString(MediaFormat.KEY_MIME)!!
         val codec = MediaCodec.createDecoderByType(mime)
         codec.configure(format, null, null, 0)
         codec.start()
 
-        val pcmSamples = mutableListOf<Short>()
-        val bufferInfo = MediaCodec.BufferInfo()
+        val pcm = mutableListOf<Short>()
+        val info = MediaCodec.BufferInfo()
         var inputDone = false
         var outputDone = false
 
-        while (!outputDone) {
-            if (!inputDone) {
-                val inputIndex = codec.dequeueInputBuffer(TIMEOUT_US)
-                if (inputIndex >= 0) {
-                    val inputBuf = codec.getInputBuffer(inputIndex)!!
-                    val sampleSize = extractor.readSampleData(inputBuf, 0)
-                    if (sampleSize < 0) {
-                        codec.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                        inputDone = true
-                    } else {
-                        codec.queueInputBuffer(inputIndex, 0, sampleSize, extractor.sampleTime, 0)
-                        extractor.advance()
-                    }
-                }
-            }
-
-            val outputIndex = codec.dequeueOutputBuffer(bufferInfo, TIMEOUT_US)
-            if (outputIndex >= 0) {
-                val outputBuf = codec.getOutputBuffer(outputIndex)!!
-                outputBuf.order(ByteOrder.LITTLE_ENDIAN)
-                while (outputBuf.remaining() >= 2) {
-                    pcmSamples.add(outputBuf.short)
-                }
-                codec.releaseOutputBuffer(outputIndex, false)
-                if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
-                    outputDone = true
-                }
-            }
-
-            // Safety: stop if we have enough samples (avoid OOM for very long tracks)
-            if (pcmSamples.size > 48_000 * 2 * 300) break
+        while (!outputDone && pcm.size < MAX_PCM_SAMPLES) {
+            feedInput(codec, extractor, inputDone).also { inputDone = it }
+            outputDone = drainOutput(codec, info, pcm)
         }
 
         codec.stop()
         codec.release()
-        extractor.release()
+        return pcm
+    }
 
-        if (pcmSamples.isEmpty()) return Pair(List(barCount) { 0.3f }, durationMs)
+    private fun feedInput(
+        codec: MediaCodec,
+        extractor: MediaExtractor,
+        alreadyDone: Boolean,
+    ): Boolean {
+        if (alreadyDone) return true
+        val idx = codec.dequeueInputBuffer(TIMEOUT_US)
+        if (idx < 0) return false
+        val buf = codec.getInputBuffer(idx)!!
+        val size = extractor.readSampleData(buf, 0)
+        if (size < 0) {
+            codec.queueInputBuffer(idx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+            return true
+        }
+        codec.queueInputBuffer(idx, 0, size, extractor.sampleTime, 0)
+        extractor.advance()
+        return false
+    }
 
-        val chunkSize = (pcmSamples.size / barCount).coerceAtLeast(1)
+    private fun drainOutput(
+        codec: MediaCodec,
+        info: MediaCodec.BufferInfo,
+        pcm: MutableList<Short>,
+    ): Boolean {
+        val idx = codec.dequeueOutputBuffer(info, TIMEOUT_US)
+        if (idx < 0) return false
+        val buf = codec.getOutputBuffer(idx)!!
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        while (buf.remaining() >= 2) pcm.add(buf.short)
+        codec.releaseOutputBuffer(idx, false)
+        return info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
+    }
+
+    private fun rmsWaveform(
+        pcm: List<Short>,
+        barCount: Int,
+    ): List<Float> {
+        if (pcm.isEmpty()) return List(barCount) { 0.3f }
+        val chunkSize = (pcm.size / barCount).coerceAtLeast(1)
         val rms =
             (0 until barCount).map { bar ->
                 val from = bar * chunkSize
-                val to = minOf(from + chunkSize, pcmSamples.size)
-                if (from >= pcmSamples.size) return@map 0f
+                if (from >= pcm.size) return@map 0f
+                val to = minOf(from + chunkSize, pcm.size)
                 var sumSq = 0.0
                 for (i in from until to) {
-                    val s = pcmSamples[i] / 32768.0
+                    val s = pcm[i] / 32768.0
                     sumSq += s * s
                 }
                 sqrt(sumSq / (to - from)).toFloat()
             }
-
         val peak = rms.max().takeIf { it > 0f } ?: 1f
-        return Pair(rms.map { it / peak }, durationMs)
+        return rms.map { it / peak }
     }
 }
