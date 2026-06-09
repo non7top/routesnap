@@ -93,16 +93,22 @@ object MusicWaveformExtractor {
     ): Boolean {
         if (alreadyDone) return true
         val idx = codec.dequeueInputBuffer(TIMEOUT_US)
-        if (idx < 0) return false
-        val buf = codec.getInputBuffer(idx)!!
-        val size = extractor.readSampleData(buf, 0)
-        if (size < 0) {
-            codec.queueInputBuffer(idx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-            return true
-        }
-        codec.queueInputBuffer(idx, 0, size, extractor.sampleTime, 0)
-        extractor.advance()
-        return false
+        val done =
+            if (idx < 0) {
+                false
+            } else {
+                val buf = codec.getInputBuffer(idx)!!
+                val size = extractor.readSampleData(buf, 0)
+                if (size < 0) {
+                    codec.queueInputBuffer(idx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                    true
+                } else {
+                    codec.queueInputBuffer(idx, 0, size, extractor.sampleTime, 0)
+                    extractor.advance()
+                    false
+                }
+            }
+        return done
     }
 
     private fun drainOutput(
