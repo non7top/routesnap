@@ -73,14 +73,13 @@ object MusicWaveformExtractor {
                 ?.startsWith("audio/") == true
         }
 
-    private class AccumState(
+    private data class AccumState(
         val barCount: Int,
         val samplesPerBar: Long,
         val channels: Int,
-    ) {
-        val sumSq = DoubleArray(barCount)
-        val counts = LongArray(barCount)
-    }
+        val sumSq: DoubleArray = DoubleArray(barCount),
+        val counts: LongArray = LongArray(barCount),
+    )
 
     private fun streamDecode(
         format: MediaFormat,
