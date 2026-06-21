@@ -97,13 +97,10 @@ data class ZoomRect(
             // Four canonical pan directions cycling by photo index
             val (startCx, endCx) =
                 when (index % 4) {
-                    0 -> Pair(0.5f * w, 1f - 0.5f * w) // L→R
-
-                    1 -> Pair(1f - 0.5f * w, 0.5f * w) // R→L
-
-                    2 -> Pair(0.5f, 0.5f * w) // C→L
-
-                    else -> Pair(0.5f, 1f - 0.5f * w) // C→R
+                    0 -> Pair(0.5f * w, 1f - 0.5f * w)
+                    1 -> Pair(1f - 0.5f * w, 0.5f * w)
+                    2 -> Pair(0.5f, 0.5f * w)
+                    else -> Pair(0.5f, 1f - 0.5f * w)
                 }
 
             fun cx(c: Float) = ZoomRect((c - w / 2f).coerceIn(0f, 1f - w), 0f, (c + w / 2f).coerceAtMost(1f), 1f)

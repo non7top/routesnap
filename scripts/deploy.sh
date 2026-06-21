@@ -74,11 +74,12 @@ else
   echo "Device: $(adb get-serialno 2>/dev/null || echo '(default)')"
 fi
 
-echo "Uninstalling existing package (if present)..."
-adb_cmd uninstall "$PKG" 2>/dev/null || true
-
 echo "Installing $APK ..."
-adb_cmd install "$APK"
+if ! adb_cmd install -r "$APK" 2>&1; then
+  echo "Replace-install failed (downgrade or signature mismatch) — uninstalling first..."
+  adb_cmd uninstall "$PKG" 2>/dev/null || true
+  adb_cmd install "$APK"
+fi
 
 echo "=== Launching $PKG ==="
 adb_cmd shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1
