@@ -81,12 +81,15 @@ class RenderForegroundService : Service() {
         return START_NOT_STICKY
     }
 
-    private suspend fun persistRenderedOutput(tripId: String?, cacheOutputPath: String) {
+    private suspend fun persistRenderedOutput(
+        tripId: String?,
+        cacheOutputPath: String,
+    ) {
         tripId ?: return
         val src = java.io.File(cacheOutputPath)
         if (!src.exists()) return
         // Move from cache to permanent files directory so it survives cache eviction.
-        val dest = java.io.File(filesDir, "rendered_${tripId}.mp4")
+        val dest = java.io.File(filesDir, "rendered_$tripId.mp4")
         src.copyTo(dest, overwrite = true)
         src.delete()
         tripRepository.updateRenderComplete(tripId, dest.absolutePath)

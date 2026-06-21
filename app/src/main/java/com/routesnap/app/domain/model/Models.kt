@@ -81,8 +81,6 @@ data class ZoomRect(
                 Pair(ZoomRect(0.04f, 0.09f, 0.91f, 0.96f), ZoomRect(0.19f, 0.15f, 0.85f, 0.81f)), // BR→TL
             )
 
-        fun defaultPair(index: Int): Pair<ZoomRect, ZoomRect> = DEFAULTS[index % DEFAULTS.size]
-
         // Landscape defaults are in photo-space (not review-box-space).
         // Rects crop a portrait-ish strip from the center of the landscape photo
         // and animate a slow zoom/drift.
@@ -93,6 +91,8 @@ data class ZoomRect(
                 Pair(ZoomRect(0.24f, 0.02f, 0.64f, 0.98f), ZoomRect(0.28f, 0.07f, 0.65f, 0.93f)), // zoom in, left
                 Pair(ZoomRect(0.36f, 0.02f, 0.76f, 0.98f), ZoomRect(0.34f, 0.07f, 0.71f, 0.93f)), // zoom in, right
             )
+
+        fun defaultPair(index: Int): Pair<ZoomRect, ZoomRect> = DEFAULTS[index % DEFAULTS.size]
 
         fun defaultLandscapePair(index: Int): Pair<ZoomRect, ZoomRect> = LANDSCAPE_DEFAULTS[index % LANDSCAPE_DEFAULTS.size]
     }

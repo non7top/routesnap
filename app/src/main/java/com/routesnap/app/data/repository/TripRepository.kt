@@ -196,7 +196,7 @@ class TripRepository(
     suspend fun deleteTrip(tripId: String) {
         val trip = getTripById(tripId)
         withContext(Dispatchers.IO) {
-            projectDir(tripId).deleteRecursively()
+            File(context.filesDir, "projects/$tripId").deleteRecursively()
             trip?.outputPath?.let { path ->
                 File(path).takeIf { it.exists() }?.delete()
                 // Also check cacheDir for videos rendered before the move to cache
@@ -270,7 +270,7 @@ class TripRepository(
         tripId: String,
         segments: List<TripSegment>,
     ): List<TripSegment> {
-        val photosDir = File(projectDir(tripId), "photos").also { it.mkdirs() }
+        val photosDir = File(context.filesDir, "projects/$tripId/photos").also { it.mkdirs() }
         return segments.map { segment ->
             val srcUri = segment.uri
             if (segment.type != com.routesnap.app.domain.model.SegmentType.PHOTO || srcUri == null) {
@@ -289,8 +289,6 @@ class TripRepository(
             }
         }
     }
-
-    private fun projectDir(tripId: String): File = File(context.filesDir, "projects/$tripId")
 
     companion object {
         private const val TAG = "TripRepository"
