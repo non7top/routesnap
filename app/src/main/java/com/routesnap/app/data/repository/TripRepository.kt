@@ -180,6 +180,17 @@ class TripRepository(
     }
 
     /**
+     * Record the completed render: sets status to COMPLETED and persists the output file path.
+     */
+    suspend fun updateRenderComplete(
+        tripId: String,
+        outputPath: String,
+    ) {
+        val trip = getTripById(tripId) ?: return
+        saveTrip(trip.copy(status = RenderStatus.COMPLETED, outputPath = outputPath))
+    }
+
+    /**
      * Delete a trip, its private photo copies, and the rendered output video.
      */
     suspend fun deleteTrip(tripId: String) {

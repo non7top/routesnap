@@ -61,7 +61,10 @@ class RenderManager
 
         private val MusicTrack.clipMs: Long get() = (endMs - startMs).coerceAtLeast(1L)
 
+        // Landscape content (aspect > 1) uses CROP so it fills the portrait frame without black bars.
+        // Portrait content uses FIT to show the full frame.
         private val portraitPresentation = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
+        private val portraitPresentationCrop = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP)
 
         /**
          * Start rendering a trip video
@@ -272,9 +275,15 @@ class RenderManager
             val videoEffects =
                 buildList {
                     // kenBurnsZoomToRect must run on the raw photo before portraitPresentation
-                    // scales the frame — otherwise the ZoomRect coords map to the output frame
-                    // rather than the original photo and custom rects have no effect.
-                    val (defStart, defEnd) = ZoomRect.defaultPair(photoIndex)
+                    // scales the frame — otherwise ZoomRect coords map to the output frame and
+                    // custom rects have no effect. Presentation is always LAST.
+                    //
+                    // The review screen shows each photo at its natural aspect ratio so the box
+                    // fills the photo with no letterboxing — ZoomRect box-space == photo-space.
+                    val photoAspect = segment.photoAspectRatio ?: 1f
+                    val isLandscape = photoAspect > 1f
+                    val (defStart, defEnd) =
+                        if (isLandscape) ZoomRect.defaultLandscapePair(photoIndex) else ZoomRect.defaultPair(photoIndex)
                     val start = segment.startZoomRect ?: defStart
                     val end = segment.endZoomRect ?: defEnd
                     add(kenBurnsZoomToRect(start, end, duration))
@@ -284,7 +293,9 @@ class RenderManager
                         val headUs = if (photoIndex == 0) 0L else fadeDurationUs
                         add(FadeRgbMatrix(durationUs, headUs, fadeDurationUs, transition.type))
                     }
-                    add(portraitPresentation)
+                    // Landscape: CROP fills the portrait frame without black bars (sides may be trimmed).
+                    // Portrait: FIT shows the full frame.
+                    add(if (isLandscape) portraitPresentationCrop else portraitPresentation)
                 }
             return EditedMediaItem
                 .Builder(mediaItem)

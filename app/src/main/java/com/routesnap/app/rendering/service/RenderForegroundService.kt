@@ -41,6 +41,7 @@ class RenderForegroundService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var stateObservationJob: Job? = null
+    private var currentTripId: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -80,7 +81,19 @@ class RenderForegroundService : Service() {
         return START_NOT_STICKY
     }
 
+    private suspend fun persistRenderedOutput(tripId: String?, cacheOutputPath: String) {
+        tripId ?: return
+        val src = java.io.File(cacheOutputPath)
+        if (!src.exists()) return
+        // Move from cache to permanent files directory so it survives cache eviction.
+        val dest = java.io.File(filesDir, "rendered_${tripId}.mp4")
+        src.copyTo(dest, overwrite = true)
+        src.delete()
+        tripRepository.updateRenderComplete(tripId, dest.absolutePath)
+    }
+
     private fun startRender(tripId: String) {
+        currentTripId = tripId
         startForeground(NOTIFICATION_ID, createNotification(0, "Preparing trip..."))
 
         stateObservationJob?.cancel()
@@ -93,7 +106,9 @@ class RenderForegroundService : Service() {
                         }
 
                         is RenderManager.RenderState.Completed -> {
-                            // Notify completion if needed, then stop
+                            serviceScope.launch {
+                                persistRenderedOutput(currentTripId, state.outputPath)
+                            }
                             stopForeground(STOP_FOREGROUND_REMOVE)
                             stopSelf()
                         }
