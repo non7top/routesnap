@@ -139,24 +139,25 @@ fun PhotoReviewScreen(
                 // Photo with rect overlays — takes up all remaining space
                 var imageSize by remember { mutableStateOf(IntSize.Zero) }
 
-                // Use the photo's natural aspect ratio for the box so the photo fills it
-                // without letterboxing and ZoomRect 0-1 coords map directly to photo space.
-                // Landscape photos get a wide box; portrait photos use 9:16.
+                // Always show a 9:16 portrait box — the output frame.
+                // Landscape photos use ContentScale.Crop so they fill the portrait frame
+                // without bars, matching what the renderer will produce.
+                // ZoomRect 0-1 coords remain in photo space; the renderer applies the same crop.
                 val photoAspect = uiState.current?.photoAspectRatio ?: (9f / 16f)
-                val boxAspect = if (photoAspect > 1f) photoAspect else 9f / 16f
+                val isLandscape = photoAspect > 1f
 
                 Box(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .aspectRatio(boxAspect)
+                            .aspectRatio(9f / 16f)
                             .onSizeChanged { imageSize = it },
                 ) {
                     uiState.current?.uri?.let { uri ->
                         AsyncImage(
                             model = uri,
                             contentDescription = null,
-                            contentScale = ContentScale.Fit,
+                            contentScale = if (isLandscape) ContentScale.Crop else ContentScale.Fit,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }

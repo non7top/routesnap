@@ -161,6 +161,7 @@ class RenderManager
 
         private fun buildComposition(trip: TripManifest): Composition {
             var photoIndex = 0
+            var actualTotalMs = 0L
             val editedMediaItems =
                 trip.segments.mapNotNull { segment ->
                     val uri = segment.uri ?: return@mapNotNull null
@@ -168,25 +169,35 @@ class RenderManager
                     val transition = effectiveTransition(segment, trip)
                     when (segment.type) {
                         SegmentType.PHOTO -> {
+                            actualTotalMs += computePhotoDurationMs(segment)
                             buildPhotoSegment(segment, photoIndex, transition)
                                 .also { photoIndex++ }
                         }
 
                         SegmentType.VIDEO -> {
+                            actualTotalMs += segment.durationMs
                             buildVideoSegment(uri, transition)
                         }
 
                         SegmentType.MAP_TRAVEL -> {
+                            actualTotalMs += if (segment.durationMs > 0) segment.durationMs else 2000L
                             buildMapTravelSegment(segment, trip)
                         }
                     }
                 }
             val mainSequence = EditedMediaItemSequence(editedMediaItems)
-            val musicSeq = if (trip.musicTracks.isNotEmpty()) buildMusicSequence(trip) else null
+            val musicSeq = if (trip.musicTracks.isNotEmpty()) buildMusicSequence(trip, actualTotalMs) else null
             val sequences = if (musicSeq != null) listOf(mainSequence, musicSeq) else listOf(mainSequence)
             return Composition
                 .Builder(sequences)
                 .build()
+        }
+
+        private fun computePhotoDurationMs(segment: TripSegment): Long {
+            val base = if (segment.durationMs > 0) segment.durationMs else 5000L
+            val endRect = segment.endZoomRect ?: return base
+            val area = (endRect.right - endRect.left) * (endRect.bottom - endRect.top)
+            return if (area > 0f) (base / area).toLong().coerceAtMost(12000L) else base
         }
 
         /**
@@ -194,8 +205,8 @@ class RenderManager
          *  - each track plays its trimmed region once, with fadeIn/fadeOut
          *  - the last track loops to fill the remaining video duration
          */
-        private fun buildMusicSequence(trip: TripManifest): EditedMediaItemSequence {
-            val videoMs = trip.totalDurationMs.coerceAtLeast(1L)
+        private fun buildMusicSequence(trip: TripManifest, videoMs: Long): EditedMediaItemSequence {
+            val videoMs = videoMs.coerceAtLeast(1L)
             val tracks = trip.musicTracks
             val items = mutableListOf<EditedMediaItem>()
 
@@ -256,16 +267,7 @@ class RenderManager
             transition: TransitionParams,
         ): EditedMediaItem {
             val uri = requireNotNull(segment.uri)
-            val baseDuration = if (segment.durationMs > 0) segment.durationMs else 5000L
-            val duration =
-                if (segment.endZoomRect != null) {
-                    val rectW = segment.endZoomRect.right - segment.endZoomRect.left
-                    val rectH = segment.endZoomRect.bottom - segment.endZoomRect.top
-                    val area = rectW * rectH
-                    if (area > 0f) (baseDuration / area).toLong().coerceAtMost(12000L) else baseDuration
-                } else {
-                    baseDuration
-                }
+            val duration = computePhotoDurationMs(segment)
             android.util.Log.d("RenderManager", "PHOTO duration: $duration ms aspect: ${segment.photoAspectRatio} endZoomRect: ${segment.endZoomRect}")
             val mediaItem =
                 MediaItem
