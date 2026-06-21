@@ -41,11 +41,10 @@ echo "=== Fetching latest passing CI run ==="
 RUN_ID=$(gh run list \
   --branch "$BRANCH" \
   --json databaseId,name,status,conclusion,createdAt \
-  --jq 'sort_by(.createdAt) | reverse
+  --jq '[sort_by(.createdAt) | reverse
         | .[] | select(.name | test("CI/CD|Build"))
         | select(.conclusion == "success")
-        | .databaseId' \
-  | head -1)
+        | .databaseId] | first')
 
 if [[ -z "$RUN_ID" ]]; then
   echo "No passing CI/CD run found for branch '$BRANCH'." >&2
