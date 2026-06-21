@@ -28,6 +28,7 @@ import com.routesnap.app.domain.model.TransitionType
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
 import com.routesnap.app.domain.model.ZoomRect
+import com.routesnap.app.domain.model.ZoomRect.Companion.snapToPortraitCrop
 import com.routesnap.app.rendering.audio.FadeAudioProcessor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -283,9 +284,23 @@ class RenderManager
                     val photoAspect = segment.photoAspectRatio ?: 1f
                     val isLandscape = photoAspect > 1f
                     val (defStart, defEnd) =
-                        if (isLandscape) ZoomRect.defaultLandscapePair(photoIndex) else ZoomRect.defaultPair(photoIndex)
-                    val start = segment.startZoomRect ?: defStart
-                    val end = segment.endZoomRect ?: defEnd
+                        if (isLandscape) {
+                            ZoomRect.defaultLandscapePair(photoIndex, photoAspect)
+                        } else {
+                            ZoomRect.defaultPair(photoIndex)
+                        }
+                    val start =
+                        if (isLandscape) {
+                            segment.startZoomRect?.snapToPortraitCrop(photoAspect) ?: defStart
+                        } else {
+                            segment.startZoomRect ?: defStart
+                        }
+                    val end =
+                        if (isLandscape) {
+                            segment.endZoomRect?.snapToPortraitCrop(photoAspect) ?: defEnd
+                        } else {
+                            segment.endZoomRect ?: defEnd
+                        }
                     add(kenBurnsZoomToRect(start, end, duration))
                     if (transition.type != TransitionType.NONE) {
                         val durationUs = duration * 1000L

@@ -81,20 +81,34 @@ data class ZoomRect(
                 Pair(ZoomRect(0.04f, 0.09f, 0.91f, 0.96f), ZoomRect(0.19f, 0.15f, 0.85f, 0.81f)), // BR→TL
             )
 
-        // Landscape defaults are in photo-space (not review-box-space).
-        // Rects crop a portrait-ish strip from the center of the landscape photo
-        // and animate a slow zoom/drift.
-        private val LANDSCAPE_DEFAULTS =
-            listOf(
-                Pair(ZoomRect(0.30f, 0.02f, 0.70f, 0.98f), ZoomRect(0.34f, 0.07f, 0.66f, 0.93f)), // zoom in, center
-                Pair(ZoomRect(0.34f, 0.07f, 0.66f, 0.93f), ZoomRect(0.30f, 0.02f, 0.70f, 0.98f)), // zoom out, center
-                Pair(ZoomRect(0.24f, 0.02f, 0.64f, 0.98f), ZoomRect(0.28f, 0.07f, 0.65f, 0.93f)), // zoom in, left
-                Pair(ZoomRect(0.36f, 0.02f, 0.76f, 0.98f), ZoomRect(0.34f, 0.07f, 0.71f, 0.93f)), // zoom in, right
-            )
-
         fun defaultPair(index: Int): Pair<ZoomRect, ZoomRect> = DEFAULTS[index % DEFAULTS.size]
 
-        fun defaultLandscapePair(index: Int): Pair<ZoomRect, ZoomRect> = LANDSCAPE_DEFAULTS[index % LANDSCAPE_DEFAULTS.size]
+        /**
+         * Portrait-sized crop windows for landscape photos. Each rect is exactly
+         * (9/16)/photoAspect wide and spans the full photo height, so after
+         * LAYOUT_SCALE_TO_FIT_WITH_CROP the crop fills the portrait frame with no
+         * black bars and no content cut. Animation pans between two positions.
+         */
+        fun defaultLandscapePair(index: Int, photoAspect: Float): Pair<ZoomRect, ZoomRect> {
+            val w = (9f / 16f) / photoAspect.coerceAtLeast(1f)
+            // Four canonical pan directions cycling by photo index
+            val (startCx, endCx) =
+                when (index % 4) {
+                    0 -> Pair(0.5f * w, 1f - 0.5f * w)  // L→R
+                    1 -> Pair(1f - 0.5f * w, 0.5f * w)  // R→L
+                    2 -> Pair(0.5f, 0.5f * w)            // C→L
+                    else -> Pair(0.5f, 1f - 0.5f * w)   // C→R
+                }
+            fun cx(c: Float) = ZoomRect((c - w / 2f).coerceIn(0f, 1f - w), 0f, (c + w / 2f).coerceAtMost(1f), 1f)
+            return Pair(cx(startCx), cx(endCx))
+        }
+
+        /** Snap a rect to a portrait-aspect crop window for the given landscape photo aspect. */
+        fun ZoomRect.snapToPortraitCrop(photoAspect: Float): ZoomRect {
+            val w = (9f / 16f) / photoAspect.coerceAtLeast(1f)
+            val cx = ((left + right) / 2f).coerceIn(w / 2f, 1f - w / 2f)
+            return ZoomRect(cx - w / 2f, 0f, cx + w / 2f, 1f)
+        }
     }
 }
 
