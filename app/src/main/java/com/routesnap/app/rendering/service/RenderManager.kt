@@ -269,30 +269,22 @@ class RenderManager
                     .setUri(uri)
                     .setImageDurationMs(duration)
                     .build()
-            val isLandscape = (segment.photoAspectRatio ?: 1f) > 1f
             val videoEffects =
                 buildList {
-                    add(portraitPresentation)
+                    // kenBurnsZoomToRect must run on the raw photo before portraitPresentation
+                    // scales the frame — otherwise the ZoomRect coords map to the output frame
+                    // rather than the original photo and custom rects have no effect.
+                    val (defStart, defEnd) = ZoomRect.defaultPair(photoIndex)
+                    val start = segment.startZoomRect ?: defStart
+                    val end = segment.endZoomRect ?: defEnd
+                    add(kenBurnsZoomToRect(start, end, duration))
                     if (transition.type != TransitionType.NONE) {
                         val durationUs = duration * 1000L
                         val fadeDurationUs = transition.durationMs * 1000L
                         val headUs = if (photoIndex == 0) 0L else fadeDurationUs
                         add(FadeRgbMatrix(durationUs, headUs, fadeDurationUs, transition.type))
                     }
-                    when {
-                        isLandscape -> {
-                            add(kenBurnsPanHorizontal(duration, photoIndex, segment.photoAspectRatio!!))
-                        }
-
-                        else -> {
-                            // Use stored rects (user-defined or default), falling back to
-                            // computed defaults if the segment predates this feature.
-                            val (defStart, defEnd) = ZoomRect.defaultPair(photoIndex)
-                            val start = segment.startZoomRect ?: defStart
-                            val end = segment.endZoomRect ?: defEnd
-                            add(kenBurnsZoomToRect(start, end, duration))
-                        }
-                    }
+                    add(portraitPresentation)
                 }
             return EditedMediaItem
                 .Builder(mediaItem)
@@ -307,11 +299,11 @@ class RenderManager
         ): EditedMediaItem {
             val videoEffects =
                 buildList {
-                    add(portraitPresentation)
                     // Video duration unknown — pass -1 so tail fade is skipped.
                     if (transition.type != TransitionType.NONE) {
                         add(FadeRgbMatrix(-1L, 0L, 0L, transition.type))
                     }
+                    add(portraitPresentation)
                 }
             return EditedMediaItem
                 .Builder(MediaItem.fromUri(uri))
@@ -354,45 +346,12 @@ class RenderManager
                     Effects(
                         emptyList(),
                         listOf(
-                            portraitPresentation,
                             // Title cards fade in AND out (both head and tail)
                             FadeRgbMatrix(durationUs, fadeDurationUs, fadeDurationUs, TransitionType.FADE_BLACK),
+                            portraitPresentation,
                         ),
                     ),
                 ).build()
-        }
-
-        /**
-         * Horizontal pan for landscape photos. Scales so height fills the portrait frame,
-         * then slides left↔right (direction alternates by index) with a subtle zoom ramp
-         * so each photo feels dynamic rather than a flat slide.
-         *
-         * Even-indexed photos zoom in (1.0→1.1×) while odd-indexed zoom out (1.1→1.0×),
-         * giving adjacent photos opposite motion that avoids a monotonous rhythm.
-         */
-        private fun kenBurnsPanHorizontal(
-            durationMs: Long,
-            index: Int,
-            aspectRatio: Float,
-        ): MatrixTransformation {
-            val durationUs = durationMs * 1000L
-            var startUs = -1L
-            val panRange = (aspectRatio - 1f).coerceAtLeast(0f)
-            val startX = if (index % 2 == 0) -panRange else panRange
-            val endX = -startX
-            val zoomStart = if (index % 2 == 0) 1.00f else 1.10f
-            val zoomEnd = if (index % 2 == 0) 1.10f else 1.00f
-            return MatrixTransformation { presentationTimeUs ->
-                if (startUs < 0L) startUs = presentationTimeUs
-                val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-                val zoom = zoomStart + (zoomEnd - zoomStart) * progress
-                val scale = aspectRatio * zoom
-                val tx = (startX + (endX - startX) * progress) * zoom
-                android.graphics.Matrix().apply {
-                    setScale(scale, scale)
-                    postTranslate(tx, 0f)
-                }
-            }
         }
 
         /**
