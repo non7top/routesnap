@@ -10,6 +10,12 @@ plugins {
 import java.util.Properties
 import java.io.FileInputStream
 
+val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0
+val prNumber = System.getenv("GITHUB_REF")
+    ?.removePrefix("refs/pull/")
+    ?.substringBefore("/")
+    ?.toIntOrNull() ?: 0
+
 // Support version name override from CI (e.g., for PR builds)
 val versionNameOverride: String? by project
 
@@ -28,8 +34,8 @@ android {
         applicationId = "com.routesnap.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = versionNameOverride ?: "1.0.0"
+        versionCode = buildNumber.takeIf { it > 0 } ?: 1
+        versionName = versionNameOverride ?: "0.1.$prNumber.$buildNumber"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
