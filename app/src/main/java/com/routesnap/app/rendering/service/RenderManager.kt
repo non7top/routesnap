@@ -59,6 +59,10 @@ class RenderManager
         private var progressJob: Job? = null
         private val scope = CoroutineScope(Dispatchers.Main + Job())
 
+        private val MusicTrack.clipMs: Long get() = (endMs - startMs).coerceAtLeast(1L)
+
+        private val portraitPresentation = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
+
         /**
          * Start rendering a trip video
          */
@@ -229,14 +233,18 @@ class RenderManager
                     .setStartPositionMs(track.startMs)
                     .setEndPositionMs(track.startMs + clipMs)
                     .build()
+            val mediaItem =
+                MediaItem
+                    .Builder()
+                    .setUri(track.uri)
+                    .setClippingConfiguration(clipping)
+                    .build()
             return EditedMediaItem
-                .Builder(MediaItem.Builder().setUri(track.uri).setClippingConfiguration(clipping).build())
+                .Builder(mediaItem)
                 .setRemoveVideo(true)
                 .setEffects(Effects(listOf(FadeAudioProcessor(fadeIn, fadeOut, clipMs)), emptyList()))
                 .build()
         }
-
-        private val MusicTrack.clipMs: Long get() = (endMs - startMs).coerceAtLeast(1L)
 
         private fun buildPhotoSegment(
             segment: TripSegment,
@@ -264,7 +272,7 @@ class RenderManager
             val isLandscape = (segment.photoAspectRatio ?: 1f) > 1f
             val videoEffects =
                 buildList {
-                    add(portraitPresentation())
+                    add(portraitPresentation)
                     if (transition.type != TransitionType.NONE) {
                         val durationUs = duration * 1000L
                         val fadeDurationUs = transition.durationMs * 1000L
@@ -299,7 +307,7 @@ class RenderManager
         ): EditedMediaItem {
             val videoEffects =
                 buildList {
-                    add(portraitPresentation())
+                    add(portraitPresentation)
                     // Video duration unknown — pass -1 so tail fade is skipped.
                     if (transition.type != TransitionType.NONE) {
                         add(FadeRgbMatrix(-1L, 0L, 0L, transition.type))
@@ -346,15 +354,13 @@ class RenderManager
                     Effects(
                         emptyList(),
                         listOf(
-                            portraitPresentation(),
+                            portraitPresentation,
                             // Title cards fade in AND out (both head and tail)
                             FadeRgbMatrix(durationUs, fadeDurationUs, fadeDurationUs, TransitionType.FADE_BLACK),
                         ),
                     ),
                 ).build()
         }
-
-        private fun portraitPresentation(): Presentation = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
 
         /**
          * Horizontal pan for landscape photos. Scales so height fills the portrait frame,
