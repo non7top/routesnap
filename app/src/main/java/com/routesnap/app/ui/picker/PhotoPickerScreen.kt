@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
@@ -130,7 +131,16 @@ fun PhotoPickerScreen(
             modifier = modifier,
             topBar = {
                 TopAppBar(
-                    title = { Text("Create New Trip") },
+                    title = {
+                        Column {
+                            Text("Pick Photos")
+                            Text(
+                                text = "Step 1 / 5",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                            )
+                        }
+                    },
                     colors =
                         TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.primary,
@@ -201,6 +211,29 @@ fun PhotoPickerScreen(
                             selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
                         ),
                 )
+
+                if (uiState.musicTrackNames.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        uiState.musicTrackNames.forEach { name ->
+                            FilterChip(
+                                selected = true,
+                                onClick = {},
+                                label = { Text(name, maxLines = 1) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.MusicNote,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 

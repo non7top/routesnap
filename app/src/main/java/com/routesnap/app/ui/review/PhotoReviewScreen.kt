@@ -80,7 +80,14 @@ fun PhotoReviewScreen(
                     title = {
                         val index = uiState.currentIndex
                         val total = uiState.segments.size
-                        Text("Photo ${index + 1} / $total")
+                        Column {
+                            Text("Photo ${index + 1} / $total")
+                            Text(
+                                text = "Step 2 / 5",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                            )
+                        }
                     },
                     navigationIcon = {
                         IconButton(onClick = {

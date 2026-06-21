@@ -92,7 +92,16 @@ fun RenderScreen(
             modifier = modifier,
             topBar = {
                 TopAppBar(
-                    title = { Text("Rendering") },
+                    title = {
+                        Column {
+                            Text("Rendering")
+                            Text(
+                                text = "Step 4 / 5",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                            )
+                        }
+                    },
                     navigationIcon = {
                         if (!uiState.isRendering && !uiState.isComplete) {
                             IconButton(onClick = onNavigateBack) {

@@ -21,6 +21,7 @@ import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import com.routesnap.app.domain.model.AspectRatio
+import com.routesnap.app.domain.model.MusicTrack
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TransitionType
@@ -173,75 +174,69 @@ class RenderManager
                     }
                 }
             val mainSequence = EditedMediaItemSequence(editedMediaItems)
-            val sequences =
-                if (trip.musicUri != null) {
-                    listOf(mainSequence, buildMusicSequence(trip))
-                } else {
-                    listOf(mainSequence)
-                }
+            val musicSeq = if (trip.musicTracks.isNotEmpty()) buildMusicSequence(trip) else null
+            val sequences = if (musicSeq != null) listOf(mainSequence, musicSeq) else listOf(mainSequence)
             return Composition
                 .Builder(sequences)
                 .build()
         }
 
         /**
-         * Builds a music sequence that:
-         *  - clips the track to [startMs, endMs]
-         *  - repeats the clip enough times to cover the full video duration
-         *  - applies fade-in on the first item and fade-out on the last item
+         * Builds a music sequence from the playlist:
+         *  - each track plays its trimmed region once, with fadeIn/fadeOut
+         *  - the last track loops to fill the remaining video duration
          */
         private fun buildMusicSequence(trip: TripManifest): EditedMediaItemSequence {
-            val musicUri = requireNotNull(trip.musicUri)
-            val startMs = trip.musicStartMs
-            val endMs = trip.musicEndMs ?: 0L
-            val clipMs = (endMs - startMs).coerceAtLeast(1L)
             val videoMs = trip.totalDurationMs.coerceAtLeast(1L)
-            val repeatCount = ((videoMs + clipMs - 1) / clipMs).toInt().coerceAtLeast(1)
+            val tracks = trip.musicTracks
+            val items = mutableListOf<EditedMediaItem>()
 
-            val items =
-                (0 until repeatCount).map { index ->
-                    val isFirst = index == 0
-                    val isLast = index == repeatCount - 1
+            val allButLast = tracks.dropLast(1)
+            allButLast.forEach { track -> items.add(buildTrackItem(track, track.clipMs, track.fadeInMs, track.fadeOutMs)) }
 
-                    val lastClipMs =
-                        if (isLast) {
-                            val usedMs = (repeatCount - 1) * clipMs
-                            (videoMs - usedMs).coerceIn(1L, clipMs)
-                        } else {
-                            clipMs
-                        }
-                    val actualEndMs = startMs + lastClipMs
+            val lastTrack = tracks.last()
+            val usedMs = allButLast.sumOf { it.clipMs }
+            val remainingMs = (videoMs - usedMs).coerceAtLeast(1L)
+            val lastClipMs = lastTrack.clipMs
+            val repeatCount = ((remainingMs + lastClipMs - 1) / lastClipMs).toInt().coerceAtLeast(1)
 
-                    val fadeIn = if (isFirst) trip.musicFadeInMs else 0L
-                    val fadeOut = if (isLast) trip.musicFadeOutMs else 0L
-
-                    val clipping =
-                        MediaItem.ClippingConfiguration
-                            .Builder()
-                            .setStartPositionMs(startMs)
-                            .setEndPositionMs(actualEndMs)
-                            .build()
-
-                    val effects =
-                        Effects(
-                            listOf(FadeAudioProcessor(fadeIn, fadeOut, lastClipMs)),
-                            emptyList(),
-                        )
-
-                    EditedMediaItem
-                        .Builder(
-                            MediaItem
-                                .Builder()
-                                .setUri(musicUri)
-                                .setClippingConfiguration(clipping)
-                                .build(),
-                        ).setRemoveVideo(true)
-                        .setEffects(effects)
-                        .build()
-                }
+            repeat(repeatCount) { index ->
+                val isFirst = index == 0
+                val isLast = index == repeatCount - 1
+                val thisMs =
+                    if (isLast) {
+                        (remainingMs - index.toLong() * lastClipMs).coerceIn(1L, lastClipMs)
+                    } else {
+                        lastClipMs
+                    }
+                val fadeIn = if (isFirst) lastTrack.fadeInMs else 0L
+                val fadeOut = if (isLast) lastTrack.fadeOutMs else 0L
+                items.add(buildTrackItem(lastTrack, thisMs, fadeIn, fadeOut))
+            }
 
             return EditedMediaItemSequence(items)
         }
+
+        private fun buildTrackItem(
+            track: MusicTrack,
+            clipMs: Long,
+            fadeIn: Long,
+            fadeOut: Long,
+        ): EditedMediaItem {
+            val clipping =
+                MediaItem.ClippingConfiguration
+                    .Builder()
+                    .setStartPositionMs(track.startMs)
+                    .setEndPositionMs(track.startMs + clipMs)
+                    .build()
+            return EditedMediaItem
+                .Builder(MediaItem.Builder().setUri(track.uri).setClippingConfiguration(clipping).build())
+                .setRemoveVideo(true)
+                .setEffects(Effects(listOf(FadeAudioProcessor(fadeIn, fadeOut, clipMs)), emptyList()))
+                .build()
+        }
+
+        private val MusicTrack.clipMs: Long get() = (endMs - startMs).coerceAtLeast(1L)
 
         private fun buildPhotoSegment(
             segment: TripSegment,

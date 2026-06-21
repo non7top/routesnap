@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.routesnap.app.data.audio.MusicWaveformExtractor
 import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.domain.model.AspectRatio
+import com.routesnap.app.domain.model.MusicTrack
 import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TransitionType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +17,29 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+data class MusicTrackUiState(
+    val track: MusicTrack,
+    val waveform: List<Float> = emptyList(),
+    val isLoading: Boolean = false,
+    val trackDurationMs: Long = 0,
+) {
+    val effectiveEndMs: Long get() = if (track.endMs > 0) track.endMs else trackDurationMs
+}
+
+@Suppress("LongParameterList")
+data class StyleUiState(
+    val selectedAspectRatio: AspectRatio = AspectRatio.PORTRAIT,
+    val selectedTemplate: TemplatePreset = TemplatePreset.BALANCED,
+    val selectedTransition: TransitionType? = null,
+    val musicTracks: List<MusicTrackUiState> = emptyList(),
+    val videoDurationMs: Long = 0,
+    val isProcessing: Boolean = false,
+) {
+    val hasTracks: Boolean get() = musicTracks.isNotEmpty()
+}
 
 @HiltViewModel
 class StyleViewModel
@@ -38,82 +61,84 @@ class StyleViewModel
         private fun loadExistingStyle(id: String) {
             viewModelScope.launch {
                 val trip = tripRepository.getTripById(id) ?: return@launch
+                val trackStates = trip.musicTracks.map { t -> MusicTrackUiState(track = t, isLoading = true) }
                 _uiState.value =
                     StyleUiState(
                         selectedAspectRatio = trip.aspectRatio,
                         selectedTemplate = trip.template,
                         selectedTransition = trip.transitionOverride,
-                        musicUri = trip.musicUri,
-                        musicTitle = trip.musicUri?.lastPathSegment?.substringAfterLast('/'),
-                        musicStartMs = trip.musicStartMs,
-                        musicEndMs = trip.musicEndMs,
-                        musicFadeInMs = trip.musicFadeInMs,
-                        musicFadeOutMs = trip.musicFadeOutMs,
+                        musicTracks = trackStates,
                         videoDurationMs = trip.totalDurationMs,
                     )
-                trip.musicUri?.let { loadWaveform(it) }
+                trip.musicTracks.indices.forEach { i -> loadWaveform(i, trip.musicTracks[i].uri) }
             }
         }
 
         fun updateAspectRatio(aspectRatio: AspectRatio) {
-            _uiState.value = _uiState.value.copy(selectedAspectRatio = aspectRatio)
+            _uiState.update { it.copy(selectedAspectRatio = aspectRatio) }
         }
 
         fun updateTemplate(template: TemplatePreset) {
-            _uiState.value = _uiState.value.copy(selectedTemplate = template)
+            _uiState.update { it.copy(selectedTemplate = template) }
         }
 
         fun updateTransition(transition: TransitionType?) {
-            _uiState.value = _uiState.value.copy(selectedTransition = transition)
+            _uiState.update { it.copy(selectedTransition = transition) }
         }
 
-        fun setMusicUri(
+        fun addMusicTrack(
             uri: Uri,
             displayName: String,
         ) {
-            _uiState.value =
-                _uiState.value.copy(
-                    musicUri = uri,
-                    musicTitle = displayName,
-                    musicStartMs = 0,
-                    musicEndMs = null,
-                    waveform = emptyList(),
-                    isLoadingWaveform = true,
-                )
-            loadWaveform(uri)
+            val newState = MusicTrackUiState(track = MusicTrack(uri = uri, displayName = displayName), isLoading = true)
+            val index = _uiState.value.musicTracks.size
+            _uiState.update { it.copy(musicTracks = it.musicTracks + newState) }
+            loadWaveform(index, uri)
         }
 
-        fun removeMusic() {
-            _uiState.value =
-                _uiState.value.copy(
-                    musicUri = null,
-                    musicTitle = null,
-                    waveform = emptyList(),
-                    trackDurationMs = 0,
-                    musicStartMs = 0,
-                    musicEndMs = null,
-                )
+        fun removeTrack(index: Int) {
+            _uiState.update { state ->
+                state.copy(musicTracks = state.musicTracks.toMutableList().also { it.removeAt(index) })
+            }
         }
 
-        fun setMusicTrim(
+        fun setTrackTrim(
+            index: Int,
             startMs: Long,
             endMs: Long,
         ) {
-            _uiState.value = _uiState.value.copy(musicStartMs = startMs, musicEndMs = endMs)
+            _uiState.update { state ->
+                val updated =
+                    state.musicTracks.mapIndexed { i, ts ->
+                        if (i == index) ts.copy(track = ts.track.copy(startMs = startMs, endMs = endMs)) else ts
+                    }
+                state.copy(musicTracks = updated)
+            }
         }
 
-        private fun loadWaveform(uri: Uri) {
+        private fun loadWaveform(
+            index: Int,
+            uri: Uri,
+        ) {
             viewModelScope.launch {
                 val (amplitudes, durationMs) = MusicWaveformExtractor.extract(context, uri)
-                val current = _uiState.value
-                val effectiveEndMs = current.musicEndMs ?: durationMs
-                _uiState.value =
-                    current.copy(
-                        waveform = amplitudes,
-                        trackDurationMs = durationMs,
-                        isLoadingWaveform = false,
-                        musicEndMs = if (current.musicEndMs == null) durationMs else effectiveEndMs,
-                    )
+                _uiState.update { state ->
+                    val updated =
+                        state.musicTracks.mapIndexed { i, ts ->
+                            if (i == index) {
+                                val effectiveEnd = if (ts.track.endMs > 0) ts.track.endMs else durationMs
+                                ts.copy(
+                                    waveform = amplitudes,
+                                    trackDurationMs = durationMs,
+                                    isLoading = false,
+                                    track = ts.track.copy(endMs = effectiveEnd),
+                                )
+                            } else {
+                                ts
+                            }
+                        }
+                    state.copy(musicTracks = updated)
+                }
             }
         }
 
@@ -125,18 +150,15 @@ class StyleViewModel
                 }
             viewModelScope.launch {
                 val state = _uiState.value
+                val tracks = state.musicTracks.map { ts -> ts.track.copy(endMs = ts.effectiveEndMs) }
                 tripRepository.updateTripStyle(
                     id,
                     TripRepository.TripStyle(
                         template = state.selectedTemplate,
                         aspectRatio = state.selectedAspectRatio,
                         transitionOverride = state.selectedTransition,
-                        musicUri = state.musicUri,
+                        musicTracks = tracks,
                         musicVolumeDb = 0f,
-                        musicStartMs = state.musicStartMs,
-                        musicEndMs = state.musicEndMs,
-                        musicFadeInMs = state.musicFadeInMs,
-                        musicFadeOutMs = state.musicFadeOutMs,
                     ),
                 )
                 onReady()

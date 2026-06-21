@@ -164,6 +164,18 @@ enum class RenderStatus {
 }
 
 /**
+ * A single music track in the playlist, with optional trim region and per-track fades.
+ */
+data class MusicTrack(
+    val uri: Uri,
+    val displayName: String = "",
+    val startMs: Long = 0,
+    val endMs: Long = 0,
+    val fadeInMs: Long = 1000,
+    val fadeOutMs: Long = 1000,
+)
+
+/**
  * Complete trip manifest containing all segments and settings
  */
 @Suppress("LongParameterList")
@@ -180,12 +192,8 @@ data class TripManifest(
     val aspectRatio: AspectRatio = AspectRatio.PORTRAIT,
     val template: TemplatePreset = TemplatePreset.BALANCED,
     val transitionOverride: TransitionType? = null,
-    val musicUri: Uri? = null,
+    val musicTracks: List<MusicTrack> = emptyList(),
     val musicVolumeDb: Float = 0f,
-    val musicStartMs: Long = 0,
-    val musicEndMs: Long? = null,
-    val musicFadeInMs: Long = 1000,
-    val musicFadeOutMs: Long = 2000,
     val status: RenderStatus = RenderStatus.DRAFT,
     val outputPath: String? = null,
 ) {

@@ -10,6 +10,7 @@ import com.routesnap.app.data.local.TripManifestDao
 import com.routesnap.app.data.local.TripManifestEntity
 import com.routesnap.app.domain.clustering.ClusteringAlgorithm
 import com.routesnap.app.domain.model.AspectRatio
+import com.routesnap.app.domain.model.MusicTrack
 import com.routesnap.app.domain.model.RenderStatus
 import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TransitionType
@@ -90,12 +91,8 @@ class TripRepository(
         val template: TemplatePreset,
         val aspectRatio: AspectRatio,
         val transitionOverride: TransitionType?,
-        val musicUri: Uri?,
+        val musicTracks: List<MusicTrack>,
         val musicVolumeDb: Float,
-        val musicStartMs: Long,
-        val musicEndMs: Long?,
-        val musicFadeInMs: Long,
-        val musicFadeOutMs: Long,
     )
 
     suspend fun updateTripStyle(
@@ -108,12 +105,8 @@ class TripRepository(
                 template = style.template,
                 aspectRatio = style.aspectRatio,
                 transitionOverride = style.transitionOverride,
-                musicUri = style.musicUri,
+                musicTracks = style.musicTracks,
                 musicVolumeDb = style.musicVolumeDb,
-                musicStartMs = style.musicStartMs,
-                musicEndMs = style.musicEndMs,
-                musicFadeInMs = style.musicFadeInMs,
-                musicFadeOutMs = style.musicFadeOutMs,
             ),
         )
     }

@@ -29,12 +29,12 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Slideshow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -54,33 +54,6 @@ import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TransitionType
 import com.routesnap.app.ui.theme.RouteSnapTheme
 
-/**
- * UI State for the style screen
- */
-@Suppress("LongParameterList")
-data class StyleUiState(
-    val selectedAspectRatio: AspectRatio = AspectRatio.PORTRAIT,
-    val selectedTemplate: TemplatePreset = TemplatePreset.BALANCED,
-    val selectedTransition: TransitionType? = null,
-    val musicUri: Uri? = null,
-    val musicTitle: String? = null,
-    val isProcessing: Boolean = false,
-    val waveform: List<Float> = emptyList(),
-    val isLoadingWaveform: Boolean = false,
-    val trackDurationMs: Long = 0,
-    val musicStartMs: Long = 0,
-    val musicEndMs: Long? = null,
-    val musicFadeInMs: Long = 1000,
-    val musicFadeOutMs: Long = 2000,
-    val videoDurationMs: Long = 0,
-) {
-    val musicSelected: Boolean get() = musicUri != null
-    val effectiveEndMs: Long get() = musicEndMs ?: trackDurationMs
-}
-
-/**
- * Style Screen - Select aspect ratio, template, and music
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StyleScreen(
@@ -102,7 +75,7 @@ fun StyleScreen(
                         ?.use { cursor ->
                             if (cursor.moveToFirst()) cursor.getString(0) else null
                         } ?: uri.lastPathSegment ?: "Music"
-                viewModel.setMusicUri(uri, displayName)
+                viewModel.addMusicTrack(uri, displayName)
             }
         }
 
@@ -111,7 +84,16 @@ fun StyleScreen(
             modifier = modifier,
             topBar = {
                 TopAppBar(
-                    title = { Text("Style Video") },
+                    title = {
+                        Column {
+                            Text("Style Video")
+                            Text(
+                                text = "Step 3 / 5",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                            )
+                        }
+                    },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -142,7 +124,6 @@ fun StyleScreen(
                         .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                // Aspect Ratio Section
                 item {
                     SectionTitle(title = "Aspect Ratio", icon = Icons.Default.Crop)
                     AspectRatioSelector(
@@ -151,7 +132,6 @@ fun StyleScreen(
                     )
                 }
 
-                // Template Section
                 item {
                     SectionTitle(title = "Template", icon = Icons.Default.Movie)
                     TemplateSelector(
@@ -160,7 +140,6 @@ fun StyleScreen(
                     )
                 }
 
-                // Transition Section
                 item {
                     SectionTitle(title = "Transition", icon = Icons.Default.Slideshow)
                     TransitionSelector(
@@ -170,47 +149,24 @@ fun StyleScreen(
                     )
                 }
 
-                // Music Section
                 item {
                     SectionTitle(title = "Music", icon = Icons.Default.MusicNote)
-                    MusicSelector(
-                        musicSelected = uiState.musicSelected,
-                        musicTitle = uiState.musicTitle,
-                        onMusicSelect = { musicPickerLauncher.launch(arrayOf("audio/*")) },
-                        onMusicRemove = { viewModel.removeMusic() },
+                    MusicPlaylistSection(
+                        tracks = uiState.musicTracks,
+                        videoDurationMs = uiState.videoDurationMs,
+                        onAddTrack = { musicPickerLauncher.launch(arrayOf("audio/*")) },
+                        onRemoveTrack = { viewModel.removeTrack(it) },
+                        onTrimChange = { index, start, end -> viewModel.setTrackTrim(index, start, end) },
                     )
-                    if (uiState.musicSelected) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (uiState.isLoadingWaveform) {
-                            CircularProgressIndicator(modifier = Modifier.padding(8.dp))
-                        } else if (uiState.trackDurationMs > 0) {
-                            MusicTrimBar(
-                                waveform = uiState.waveform,
-                                trackDurationMs = uiState.trackDurationMs,
-                                videoDurationMs = uiState.videoDurationMs,
-                                startMs = uiState.musicStartMs,
-                                endMs = uiState.effectiveEndMs,
-                                onStartChange = { viewModel.setMusicTrim(it, uiState.effectiveEndMs) },
-                                onEndChange = { viewModel.setMusicTrim(uiState.musicStartMs, it) },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
                 }
 
-                // Preview section
                 item {
                     Spacer(modifier = Modifier.height(32.dp))
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors =
-                            CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            ),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                        ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
                             Text(
                                 text = "Preview",
                                 style = MaterialTheme.typography.titleMedium,
@@ -241,24 +197,131 @@ fun StyleScreen(
 }
 
 @Composable
+private fun MusicPlaylistSection(
+    tracks: List<MusicTrackUiState>,
+    videoDurationMs: Long,
+    onAddTrack: () -> Unit,
+    onRemoveTrack: (Int) -> Unit,
+    onTrimChange: (Int, Long, Long) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        tracks.forEachIndexed { index, ts ->
+            MusicTrackRow(
+                index = index,
+                ts = ts,
+                videoDurationMs = videoDurationMs,
+                onRemove = { onRemoveTrack(index) },
+                onTrimChange = { start, end -> onTrimChange(index, start, end) },
+            )
+        }
+        AddMusicButton(label = if (tracks.isEmpty()) "Add music" else "Add another song", onClick = onAddTrack)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MusicTrackRow(
+    index: Int,
+    ts: MusicTrackUiState,
+    videoDurationMs: Long,
+    onRemove: () -> Unit,
+    onTrimChange: (Long, Long) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = ts.track.displayName.ifBlank { "Track ${index + 1}" },
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                        )
+                        Text(
+                            text = if (ts.trackDurationMs > 0) formatMs(ts.trackDurationMs) else "Loading…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                IconButton(onClick = onRemove) {
+                    Icon(Icons.Default.Close, contentDescription = "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            if (ts.isLoading) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Analysing audio…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(end = 8.dp))
+            } else if (ts.trackDurationMs > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                MusicTrimBar(
+                    waveform = ts.waveform,
+                    trackDurationMs = ts.trackDurationMs,
+                    videoDurationMs = videoDurationMs,
+                    startMs = ts.track.startMs,
+                    endMs = ts.effectiveEndMs,
+                    onStartChange = { onTrimChange(it, ts.effectiveEndMs) },
+                    onEndChange = { onTrimChange(ts.track.startMs, it) },
+                    modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddMusicButton(
+    label: String,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(text = label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+private fun formatMs(ms: Long): String {
+    val s = ms / 1000
+    return "%d:%02d".format(s / 60, s % 60)
+}
+
+@Composable
 private fun SectionTitle(
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-        )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-        )
+        Text(text = title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -273,16 +336,8 @@ private fun AspectRatioSelector(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .selectable(
-                            selected = selectedAspectRatio == ratio,
-                            onClick = { onAspectRatioSelect(ratio) },
-                        ),
-                border =
-                    if (selectedAspectRatio == ratio) {
-                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                    } else {
-                        null
-                    },
+                        .selectable(selected = selectedAspectRatio == ratio, onClick = { onAspectRatioSelect(ratio) }),
+                border = if (selectedAspectRatio == ratio) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                 colors =
                     CardDefaults.cardColors(
                         containerColor =
@@ -294,23 +349,13 @@ private fun AspectRatioSelector(
                     ),
             ) {
                 Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = ratio.displayName,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
+                    Text(text = ratio.displayName, style = MaterialTheme.typography.bodyLarge)
                     if (selectedAspectRatio == ratio) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
+                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -329,16 +374,8 @@ private fun TemplateSelector(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .selectable(
-                            selected = selectedTemplate == template,
-                            onClick = { onTemplateSelect(template) },
-                        ),
-                border =
-                    if (selectedTemplate == template) {
-                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                    } else {
-                        null
-                    },
+                        .selectable(selected = selectedTemplate == template, onClick = { onTemplateSelect(template) }),
+                border = if (selectedTemplate == template) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                 colors =
                     CardDefaults.cardColors(
                         containerColor =
@@ -349,36 +386,19 @@ private fun TemplateSelector(
                             },
                     ),
             ) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = template.displayName,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
+                        Text(text = template.displayName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                         if (selectedTemplate == template) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
+                            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = template.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Text(text = template.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         text = "Photos: ${template.photoDurationMs / 1000}s | Videos: ${template.videoHighlightDurationMs / 1000}s | ${template.defaultTransitionType.label} ${template.defaultTransitionDurationMs}ms",
                         style = MaterialTheme.typography.bodySmall,
@@ -419,67 +439,6 @@ private fun TransitionSelector(
                     onClick = { onTransitionSelect(type) },
                     label = { Text(label, style = MaterialTheme.typography.bodySmall) },
                 )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MusicSelector(
-    musicSelected: Boolean,
-    musicTitle: String?,
-    onMusicSelect: () -> Unit,
-    onMusicRemove: () -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onMusicSelect,
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            ),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = if (musicSelected) Icons.Default.MusicNote else Icons.Default.Add,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = if (musicSelected) musicTitle ?: "Music Selected" else "Select Music",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                    )
-                    Text(
-                        text = if (musicSelected) "Tap to change" else "Add background music to your video",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            if (musicSelected) {
-                IconButton(onClick = onMusicRemove) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Remove music",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
         }
     }
