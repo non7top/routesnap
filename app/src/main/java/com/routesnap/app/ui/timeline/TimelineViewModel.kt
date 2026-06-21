@@ -5,6 +5,7 @@ import android.location.Geocoder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.routesnap.app.data.repository.TripRepository
+import com.routesnap.app.domain.model.SegmentOverlay
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TripSegment
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -239,5 +240,26 @@ class TimelineViewModel
             mutableSegments[index + 1] = temp
 
             _uiState.value = _uiState.value.copy(segments = mutableSegments)
+        }
+
+        fun openOverlaySheet(segment: TripSegment) {
+            _uiState.value = _uiState.value.copy(overlaySegment = segment)
+        }
+
+        fun closeOverlaySheet() {
+            _uiState.value = _uiState.value.copy(overlaySegment = null)
+        }
+
+        fun saveSegmentOverlay(segmentId: String, overlay: SegmentOverlay?) {
+            viewModelScope.launch {
+                val tripId = _uiState.value.tripId ?: return@launch
+                tripRepository.updateSegmentOverlay(tripId, segmentId, overlay)
+                _uiState.value = _uiState.value.copy(
+                    segments = _uiState.value.segments.map { seg ->
+                        if (seg.id == segmentId) seg.copy(overlay = overlay) else seg
+                    },
+                    overlaySegment = null,
+                )
+            }
         }
     }

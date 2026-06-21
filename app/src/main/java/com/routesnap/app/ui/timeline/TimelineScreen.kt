@@ -17,17 +17,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,6 +68,7 @@ data class TimelineUiState(
     val error: String? = null,
     val tripId: String? = null,
     val segmentLocations: Map<String, String> = emptyMap(), // segment.id → "City, Country"
+    val overlaySegment: TripSegment? = null,
 )
 
 data class TimelineCluster(
@@ -92,6 +96,17 @@ fun TimelineScreen(
 
     LaunchedEffect(tripId) {
         tripId?.let { viewModel.loadTrip(it) }
+    }
+
+    val overlaySegment = uiState.overlaySegment
+    if (overlaySegment != null) {
+        OverlayBottomSheet(
+            segment = overlaySegment,
+            locationName = uiState.segmentLocations[overlaySegment.id],
+            onDismiss = { viewModel.closeOverlaySheet() },
+            onConfirm = { overlay -> viewModel.saveSegmentOverlay(overlaySegment.id, overlay) },
+            onRemove = { viewModel.saveSegmentOverlay(overlaySegment.id, null) },
+        )
     }
 
     RouteSnapTheme {
@@ -134,6 +149,7 @@ fun TimelineScreen(
                 TimelineContent(
                     uiState = uiState,
                     onRemoveSegment = { viewModel.removeSegment(it) },
+                    onAddText = { viewModel.openOverlaySheet(it) },
                     onNavigateToPhotoReview = onNavigateToPhotoReview,
                     modifier =
                         Modifier
@@ -149,6 +165,7 @@ fun TimelineScreen(
 private fun TimelineContent(
     uiState: TimelineUiState,
     onRemoveSegment: (TripSegment) -> Unit,
+    onAddText: (TripSegment) -> Unit,
     onNavigateToPhotoReview: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -168,6 +185,7 @@ private fun TimelineContent(
                     index = index,
                     locationName = uiState.segmentLocations[segment.id],
                     onRemove = { onRemoveSegment(segment) },
+                    onAddText = { onAddText(segment) },
                     onPhotoClick =
                         if (segment.type == SegmentType.PHOTO) {
                             { onNavigateToPhotoReview(segment.id) }
@@ -194,6 +212,7 @@ private fun TimelineContent(
                         index = segmentIndex,
                         locationName = uiState.segmentLocations[segment.id],
                         onRemove = { onRemoveSegment(segment) },
+                        onAddText = { onAddText(segment) },
                         onPhotoClick =
                             if (segment.type == SegmentType.PHOTO) {
                                 { onNavigateToPhotoReview(segment.id) }
@@ -255,6 +274,7 @@ private fun TimelineItem(
     index: Int,
     locationName: String?,
     onRemove: () -> Unit,
+    onAddText: () -> Unit,
     onPhotoClick: (() -> Unit)? = null,
 ) {
     Card(
@@ -395,6 +415,29 @@ private fun TimelineItem(
                                 },
                         )
                     }
+
+                    val hasOverlay = segment.overlay != null
+                    AssistChip(
+                        onClick = onAddText,
+                        label = {
+                            val labelText = if (hasOverlay) {
+                                segment.overlay!!.text.take(20).let {
+                                    if (segment.overlay!!.text.length > 20) "$it…" else it
+                                }
+                            } else {
+                                "Add text"
+                            }
+                            Text(labelText, style = MaterialTheme.typography.labelSmall)
+                        },
+                        modifier = Modifier.padding(top = 4.dp),
+                        leadingIcon = {
+                            Icon(
+                                imageVector = if (hasOverlay) Icons.Default.Edit else Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        },
+                    )
                 }
             }
 

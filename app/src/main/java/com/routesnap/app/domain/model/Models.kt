@@ -56,6 +56,13 @@ enum class TransitionType(
     FLASH("Flash"),
 }
 
+enum class OverlayType { COMMENT, LOCATION }
+
+data class SegmentOverlay(
+    val text: String,
+    val type: OverlayType,
+)
+
 /**
  * Normalized rectangle (0–1 coordinates) used as Ken Burns start/end frames.
  */
@@ -107,6 +114,7 @@ data class TripSegment(
     val startZoomRect: ZoomRect? = null,
     val endZoomRect: ZoomRect? = null,
     val isReviewed: Boolean = false,
+    val overlay: SegmentOverlay? = null,
 )
 
 /**

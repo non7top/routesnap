@@ -9,7 +9,10 @@ import android.graphics.Typeface
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.MatrixTransformation
+import androidx.media3.effect.OverlayEffect
+import androidx.media3.effect.OverlaySettings
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbMatrix
 import androidx.media3.transformer.Composition
@@ -21,6 +24,7 @@ import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import com.routesnap.app.domain.model.AspectRatio
+import com.routesnap.app.domain.model.SegmentOverlay
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TransitionType
@@ -163,7 +167,7 @@ class RenderManager
                         }
 
                         SegmentType.VIDEO -> {
-                            buildVideoSegment(uri, transition)
+                            buildVideoSegment(segment, transition)
                         }
 
                         SegmentType.MAP_TRAVEL -> {
@@ -224,6 +228,9 @@ class RenderManager
                             add(kenBurnsZoomToRect(start, end, duration))
                         }
                     }
+                    segment.overlay?.let { overlay ->
+                        add(OverlayEffect(listOf(TextBitmapOverlay(overlay))))
+                    }
                 }
             return EditedMediaItem
                 .Builder(mediaItem)
@@ -233,15 +240,19 @@ class RenderManager
         }
 
         private fun buildVideoSegment(
-            uri: Uri,
+            segment: TripSegment,
             transition: TransitionParams,
         ): EditedMediaItem {
+            val uri = requireNotNull(segment.uri)
             val videoEffects =
                 buildList {
                     add(portraitPresentation())
                     // Video duration unknown — pass -1 so tail fade is skipped.
                     if (transition.type != TransitionType.NONE) {
                         add(FadeRgbMatrix(-1L, 0L, 0L, transition.type))
+                    }
+                    segment.overlay?.let { overlay ->
+                        add(OverlayEffect(listOf(TextBitmapOverlay(overlay))))
                     }
                 }
             return EditedMediaItem
@@ -428,6 +439,97 @@ class RenderManager
             progressJob?.cancel()
             transformer = null
             _renderState.value = RenderState.Cancelled
+        }
+
+        private class TextBitmapOverlay(overlay: SegmentOverlay) : BitmapOverlay() {
+            private val bitmap: Bitmap = buildTextBitmap(overlay.text)
+            private var startUs = -1L
+            private val fadeInUs = 500_000L
+
+            override fun getBitmap(presentationTimeUs: Long): Bitmap = bitmap
+
+            override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
+                if (startUs < 0L) startUs = presentationTimeUs
+                val elapsed = presentationTimeUs - startUs
+                val alpha = (elapsed.toFloat() / fadeInUs).coerceIn(0f, 1f)
+                return OverlaySettings
+                    .Builder()
+                    .setAlphaScale(alpha)
+                    .setAnchor(0.88f, 0.88f)
+                    .setOverlayAnchor(1f, 1f)
+                    .build()
+            }
+
+            companion object {
+                private fun buildTextBitmap(text: String): Bitmap {
+                    val textSizePx = 52f
+                    val paddingH = 24f
+                    val paddingV = 16f
+                    val maxWidthPx = 320f
+                    val cornerRadius = 20f
+
+                    val textPaint =
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            color = Color.WHITE
+                            this.textSize = textSizePx
+                            typeface = Typeface.DEFAULT_BOLD
+                            textAlign = Paint.Align.LEFT
+                        }
+
+                    val lines = wordWrap(text, textPaint, maxWidthPx)
+                    val lineHeight = textPaint.fontMetrics.let { it.descent - it.ascent }
+                    val textWidth = lines.maxOf { textPaint.measureText(it) }
+                    val textHeight = lineHeight * lines.size
+
+                    val pillW = textWidth + paddingH * 2
+                    val pillH = textHeight + paddingV * 2
+
+                    val src = Bitmap.createBitmap(pillW.toInt(), pillH.toInt(), Bitmap.Config.ARGB_8888)
+                    val canvas = Canvas(src)
+
+                    val bgPaint =
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            color = Color.argb(180, 10, 10, 10)
+                        }
+                    canvas.drawRoundRect(0f, 0f, pillW, pillH, cornerRadius, cornerRadius, bgPaint)
+
+                    val fm = textPaint.fontMetrics
+                    val baseY = paddingV - fm.ascent
+                    lines.forEachIndexed { i, line ->
+                        canvas.drawText(line, paddingH, baseY + i * lineHeight, textPaint)
+                    }
+
+                    val matrix = android.graphics.Matrix().apply { postRotate(-30f) }
+                    val rotated = Bitmap.createBitmap(src, 0, 0, src.width, src.height, matrix, true)
+                    src.recycle()
+                    return rotated
+                }
+
+                private fun wordWrap(
+                    text: String,
+                    paint: Paint,
+                    maxWidth: Float,
+                ): List<String> {
+                    val words = text.split(" ")
+                    val lines = mutableListOf<String>()
+                    var current = ""
+                    for (word in words) {
+                        val candidate = if (current.isEmpty()) word else "$current $word"
+                        if (paint.measureText(candidate) <= maxWidth) {
+                            current = candidate
+                        } else {
+                            if (current.isNotEmpty()) lines.add(current)
+                            current = word
+                            if (lines.size >= 1) {
+                                lines.add(current)
+                                return lines.take(2)
+                            }
+                        }
+                    }
+                    if (current.isNotEmpty()) lines.add(current)
+                    return lines.take(2)
+                }
+            }
         }
 
         /**
