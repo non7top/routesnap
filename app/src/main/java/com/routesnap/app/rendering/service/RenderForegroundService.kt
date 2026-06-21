@@ -91,7 +91,9 @@ class RenderForegroundService : Service() {
         // Move from cache to permanent files directory so it survives cache eviction.
         val dest = java.io.File(filesDir, "rendered_$tripId.mp4")
         src.copyTo(dest, overwrite = true)
-        src.delete()
+        // Do NOT delete src — RenderViewModel passes the cache path to ShareScreen for
+        // immediate playback. The cache copy is evicted by the OS eventually; dest is
+        // the permanent record stored in filesDir.
         tripRepository.updateRenderComplete(tripId, dest.absolutePath)
     }
 
