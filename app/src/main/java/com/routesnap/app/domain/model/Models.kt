@@ -89,16 +89,23 @@ data class ZoomRect(
          * LAYOUT_SCALE_TO_FIT_WITH_CROP the crop fills the portrait frame with no
          * black bars and no content cut. Animation pans between two positions.
          */
-        fun defaultLandscapePair(index: Int, photoAspect: Float): Pair<ZoomRect, ZoomRect> {
+        fun defaultLandscapePair(
+            index: Int,
+            photoAspect: Float,
+        ): Pair<ZoomRect, ZoomRect> {
             val w = (9f / 16f) / photoAspect.coerceAtLeast(1f)
             // Four canonical pan directions cycling by photo index
             val (startCx, endCx) =
                 when (index % 4) {
-                    0 -> Pair(0.5f * w, 1f - 0.5f * w)  // L→R
-                    1 -> Pair(1f - 0.5f * w, 0.5f * w)  // R→L
-                    2 -> Pair(0.5f, 0.5f * w)            // C→L
-                    else -> Pair(0.5f, 1f - 0.5f * w)   // C→R
+                    0 -> Pair(0.5f * w, 1f - 0.5f * w) // L→R
+
+                    1 -> Pair(1f - 0.5f * w, 0.5f * w) // R→L
+
+                    2 -> Pair(0.5f, 0.5f * w) // C→L
+
+                    else -> Pair(0.5f, 1f - 0.5f * w) // C→R
                 }
+
             fun cx(c: Float) = ZoomRect((c - w / 2f).coerceIn(0f, 1f - w), 0f, (c + w / 2f).coerceAtMost(1f), 1f)
             return Pair(cx(startCx), cx(endCx))
         }

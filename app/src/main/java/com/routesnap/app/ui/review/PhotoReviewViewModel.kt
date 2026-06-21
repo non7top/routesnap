@@ -43,7 +43,10 @@ class PhotoReviewViewModel
             loadSegments()
         }
 
-        private fun rectsFor(segment: TripSegment, index: Int): Pair<ZoomRect, ZoomRect> {
+        private fun rectsFor(
+            segment: TripSegment,
+            index: Int,
+        ): Pair<ZoomRect, ZoomRect> {
             val aspect = segment.photoAspectRatio ?: 1f
             return if (aspect > 1f) {
                 val (defS, defE) = ZoomRect.defaultLandscapePair(index, aspect)
