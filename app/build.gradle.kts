@@ -126,8 +126,8 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.8")
 
     // Lifecycle
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
 
     // Activity
     implementation("androidx.activity:activity-compose:1.10.1")
