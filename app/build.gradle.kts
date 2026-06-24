@@ -140,7 +140,7 @@ dependencies {
     implementation("androidx.media3:media3-effect:1.5.1")
 
     // MapLibre (Open source map engine)
-    implementation("org.maplibre.gl:android-sdk:13.3.0")
+    implementation("org.maplibre.gl:android-sdk:13.3.1")
 
     // ExifInterface (GPS metadata extraction)
     implementation("androidx.exifinterface:exifinterface:1.4.2")
