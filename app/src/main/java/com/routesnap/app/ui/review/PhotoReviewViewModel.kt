@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.routesnap.app.data.repository.TripRepository
 import com.routesnap.app.domain.model.TripSegment
 import com.routesnap.app.domain.model.ZoomRect
+import com.routesnap.app.domain.model.ZoomRect.Companion.snapToPortraitCrop
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +43,22 @@ class PhotoReviewViewModel
             loadSegments()
         }
 
+        private fun rectsFor(
+            segment: TripSegment,
+            index: Int,
+        ): Pair<ZoomRect, ZoomRect> {
+            val aspect = segment.photoAspectRatio ?: 1f
+            return if (aspect > 1f) {
+                val (defS, defE) = ZoomRect.defaultLandscapePair(index, aspect)
+                val s = segment.startZoomRect?.snapToPortraitCrop(aspect) ?: defS
+                val e = segment.endZoomRect?.snapToPortraitCrop(aspect) ?: defE
+                Pair(s, e)
+            } else {
+                val (defS, defE) = ZoomRect.defaultPair(index)
+                Pair(segment.startZoomRect ?: defS, segment.endZoomRect ?: defE)
+            }
+        }
+
         private fun loadSegments() {
             viewModelScope.launch {
                 val id = tripId ?: return@launch
@@ -55,12 +72,14 @@ class PhotoReviewViewModel
                         .indexOfFirst { it.id == initialSegmentId }
                         .coerceAtLeast(0)
                 val initial = photoSegments.getOrNull(initialIndex)
+                val (startRect, endRect) =
+                    if (initial != null) rectsFor(initial, initialIndex) else ZoomRect.defaultPair(0)
                 _uiState.value =
                     PhotoReviewUiState(
                         segments = photoSegments,
                         currentIndex = initialIndex,
-                        startRect = initial?.startZoomRect ?: ZoomRect.defaultPair(initialIndex).first,
-                        endRect = initial?.endZoomRect ?: ZoomRect.defaultPair(initialIndex).second,
+                        startRect = startRect,
+                        endRect = endRect,
                     )
             }
         }
@@ -69,20 +88,20 @@ class PhotoReviewViewModel
             saveCurrentRects()
             val state = _uiState.value
             val next = state.segments.getOrNull(index) ?: return
-            _uiState.value =
-                state.copy(
-                    currentIndex = index,
-                    startRect = next.startZoomRect ?: ZoomRect.defaultPair(index).first,
-                    endRect = next.endZoomRect ?: ZoomRect.defaultPair(index).second,
-                )
+            val (startRect, endRect) = rectsFor(next, index)
+            _uiState.value = state.copy(currentIndex = index, startRect = startRect, endRect = endRect)
         }
 
         fun updateStartRect(rect: ZoomRect) {
-            _uiState.value = _uiState.value.copy(startRect = rect)
+            val aspect = _uiState.value.current?.photoAspectRatio ?: 1f
+            val snapped = if (aspect > 1f) rect.snapToPortraitCrop(aspect) else rect
+            _uiState.value = _uiState.value.copy(startRect = snapped)
         }
 
         fun updateEndRect(rect: ZoomRect) {
-            _uiState.value = _uiState.value.copy(endRect = rect)
+            val aspect = _uiState.value.current?.photoAspectRatio ?: 1f
+            val snapped = if (aspect > 1f) rect.snapToPortraitCrop(aspect) else rect
+            _uiState.value = _uiState.value.copy(endRect = snapped)
         }
 
         fun saveCurrentRects() {

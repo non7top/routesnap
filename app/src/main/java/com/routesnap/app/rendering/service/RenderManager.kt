@@ -21,12 +21,15 @@ import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import com.routesnap.app.domain.model.AspectRatio
+import com.routesnap.app.domain.model.MusicTrack
 import com.routesnap.app.domain.model.SegmentType
 import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TransitionType
 import com.routesnap.app.domain.model.TripManifest
 import com.routesnap.app.domain.model.TripSegment
 import com.routesnap.app.domain.model.ZoomRect
+import com.routesnap.app.domain.model.ZoomRect.Companion.snapToPortraitCrop
+import com.routesnap.app.rendering.audio.FadeAudioProcessor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -56,6 +59,13 @@ class RenderManager
         private var transformer: Transformer? = null
         private var progressJob: Job? = null
         private val scope = CoroutineScope(Dispatchers.Main + Job())
+
+        private val MusicTrack.clipMs: Long get() = (endMs - startMs).coerceAtLeast(1L)
+
+        // Landscape content (aspect > 1) uses CROP so it fills the portrait frame without black bars.
+        // Portrait content uses FIT to show the full frame.
+        private val portraitPresentation = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
+        private val portraitPresentationCrop = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP)
 
         /**
          * Start rendering a trip video
@@ -151,6 +161,7 @@ class RenderManager
 
         private fun buildComposition(trip: TripManifest): Composition {
             var photoIndex = 0
+            var actualTotalMs = 0L
             val editedMediaItems =
                 trip.segments.mapNotNull { segment ->
                     val uri = segment.uri ?: return@mapNotNull null
@@ -158,22 +169,95 @@ class RenderManager
                     val transition = effectiveTransition(segment, trip)
                     when (segment.type) {
                         SegmentType.PHOTO -> {
+                            actualTotalMs += computePhotoDurationMs(segment)
                             buildPhotoSegment(segment, photoIndex, transition)
                                 .also { photoIndex++ }
                         }
 
                         SegmentType.VIDEO -> {
+                            actualTotalMs += segment.durationMs
                             buildVideoSegment(uri, transition)
                         }
 
                         SegmentType.MAP_TRAVEL -> {
+                            actualTotalMs += if (segment.durationMs > 0) segment.durationMs else 2000L
                             buildMapTravelSegment(segment, trip)
                         }
                     }
                 }
-            val sequence = EditedMediaItemSequence(editedMediaItems)
+            val mainSequence = EditedMediaItemSequence(editedMediaItems)
+            val musicSeq = if (trip.musicTracks.isNotEmpty()) buildMusicSequence(trip, actualTotalMs) else null
+            val sequences = if (musicSeq != null) listOf(mainSequence, musicSeq) else listOf(mainSequence)
             return Composition
-                .Builder(listOf(sequence))
+                .Builder(sequences)
+                .build()
+        }
+
+        private fun computePhotoDurationMs(segment: TripSegment): Long {
+            val base = if (segment.durationMs > 0) segment.durationMs else 5000L
+            val endRect = segment.endZoomRect ?: return base
+            val area = (endRect.right - endRect.left) * (endRect.bottom - endRect.top)
+            return if (area > 0f) (base / area).toLong().coerceAtMost(12000L) else base
+        }
+
+        /**
+         * Builds a music sequence from the playlist:
+         *  - each track plays its trimmed region once, with fadeIn/fadeOut
+         *  - the last track loops to fill the remaining video duration
+         */
+        private fun buildMusicSequence(trip: TripManifest, videoMs: Long): EditedMediaItemSequence {
+            val videoMs = videoMs.coerceAtLeast(1L)
+            val tracks = trip.musicTracks
+            val items = mutableListOf<EditedMediaItem>()
+
+            val allButLast = tracks.dropLast(1)
+            allButLast.forEach { track -> items.add(buildTrackItem(track, track.clipMs, track.fadeInMs, track.fadeOutMs)) }
+
+            val lastTrack = tracks.last()
+            val usedMs = allButLast.sumOf { it.clipMs }
+            val remainingMs = (videoMs - usedMs).coerceAtLeast(1L)
+            val lastClipMs = lastTrack.clipMs
+            val repeatCount = ((remainingMs + lastClipMs - 1) / lastClipMs).toInt().coerceAtLeast(1)
+
+            repeat(repeatCount) { index ->
+                val isFirst = index == 0
+                val isLast = index == repeatCount - 1
+                val thisMs =
+                    if (isLast) {
+                        (remainingMs - index.toLong() * lastClipMs).coerceIn(1L, lastClipMs)
+                    } else {
+                        lastClipMs
+                    }
+                val fadeIn = if (isFirst) lastTrack.fadeInMs else 0L
+                val fadeOut = if (isLast) lastTrack.fadeOutMs else 0L
+                items.add(buildTrackItem(lastTrack, thisMs, fadeIn, fadeOut))
+            }
+
+            return EditedMediaItemSequence(items)
+        }
+
+        private fun buildTrackItem(
+            track: MusicTrack,
+            clipMs: Long,
+            fadeIn: Long,
+            fadeOut: Long,
+        ): EditedMediaItem {
+            val clipping =
+                MediaItem.ClippingConfiguration
+                    .Builder()
+                    .setStartPositionMs(track.startMs)
+                    .setEndPositionMs(track.startMs + clipMs)
+                    .build()
+            val mediaItem =
+                MediaItem
+                    .Builder()
+                    .setUri(track.uri)
+                    .setClippingConfiguration(clipping)
+                    .build()
+            return EditedMediaItem
+                .Builder(mediaItem)
+                .setRemoveVideo(true)
+                .setEffects(Effects(listOf(FadeAudioProcessor(fadeIn, fadeOut, clipMs)), emptyList()))
                 .build()
         }
 
@@ -183,16 +267,7 @@ class RenderManager
             transition: TransitionParams,
         ): EditedMediaItem {
             val uri = requireNotNull(segment.uri)
-            val baseDuration = if (segment.durationMs > 0) segment.durationMs else 5000L
-            val duration =
-                if (segment.endZoomRect != null) {
-                    val rectW = segment.endZoomRect.right - segment.endZoomRect.left
-                    val rectH = segment.endZoomRect.bottom - segment.endZoomRect.top
-                    val area = rectW * rectH
-                    if (area > 0f) (baseDuration / area).toLong().coerceAtMost(12000L) else baseDuration
-                } else {
-                    baseDuration
-                }
+            val duration = computePhotoDurationMs(segment)
             android.util.Log.d("RenderManager", "PHOTO duration: $duration ms aspect: ${segment.photoAspectRatio} endZoomRect: ${segment.endZoomRect}")
             val mediaItem =
                 MediaItem
@@ -200,30 +275,44 @@ class RenderManager
                     .setUri(uri)
                     .setImageDurationMs(duration)
                     .build()
-            val isLandscape = (segment.photoAspectRatio ?: 1f) > 1f
             val videoEffects =
                 buildList {
-                    add(portraitPresentation())
+                    // kenBurnsZoomToRect must run on the raw photo before portraitPresentation
+                    // scales the frame — otherwise ZoomRect coords map to the output frame and
+                    // custom rects have no effect. Presentation is always LAST.
+                    //
+                    // The review screen shows each photo at its natural aspect ratio so the box
+                    // fills the photo with no letterboxing — ZoomRect box-space == photo-space.
+                    val photoAspect = segment.photoAspectRatio ?: 1f
+                    val isLandscape = photoAspect > 1f
+                    val (defStart, defEnd) =
+                        if (isLandscape) {
+                            ZoomRect.defaultLandscapePair(photoIndex, photoAspect)
+                        } else {
+                            ZoomRect.defaultPair(photoIndex)
+                        }
+                    val start =
+                        if (isLandscape) {
+                            segment.startZoomRect?.snapToPortraitCrop(photoAspect) ?: defStart
+                        } else {
+                            segment.startZoomRect ?: defStart
+                        }
+                    val end =
+                        if (isLandscape) {
+                            segment.endZoomRect?.snapToPortraitCrop(photoAspect) ?: defEnd
+                        } else {
+                            segment.endZoomRect ?: defEnd
+                        }
+                    add(kenBurnsZoomToRect(start, end, duration))
                     if (transition.type != TransitionType.NONE) {
                         val durationUs = duration * 1000L
                         val fadeDurationUs = transition.durationMs * 1000L
                         val headUs = if (photoIndex == 0) 0L else fadeDurationUs
                         add(FadeRgbMatrix(durationUs, headUs, fadeDurationUs, transition.type))
                     }
-                    when {
-                        isLandscape -> {
-                            add(kenBurnsPanHorizontal(duration, photoIndex, segment.photoAspectRatio!!))
-                        }
-
-                        else -> {
-                            // Use stored rects (user-defined or default), falling back to
-                            // computed defaults if the segment predates this feature.
-                            val (defStart, defEnd) = ZoomRect.defaultPair(photoIndex)
-                            val start = segment.startZoomRect ?: defStart
-                            val end = segment.endZoomRect ?: defEnd
-                            add(kenBurnsZoomToRect(start, end, duration))
-                        }
-                    }
+                    // Landscape: CROP fills the portrait frame without black bars (sides may be trimmed).
+                    // Portrait: FIT shows the full frame.
+                    add(if (isLandscape) portraitPresentationCrop else portraitPresentation)
                 }
             return EditedMediaItem
                 .Builder(mediaItem)
@@ -238,11 +327,11 @@ class RenderManager
         ): EditedMediaItem {
             val videoEffects =
                 buildList {
-                    add(portraitPresentation())
                     // Video duration unknown — pass -1 so tail fade is skipped.
                     if (transition.type != TransitionType.NONE) {
                         add(FadeRgbMatrix(-1L, 0L, 0L, transition.type))
                     }
+                    add(portraitPresentation)
                 }
             return EditedMediaItem
                 .Builder(MediaItem.fromUri(uri))
@@ -285,39 +374,12 @@ class RenderManager
                     Effects(
                         emptyList(),
                         listOf(
-                            portraitPresentation(),
                             // Title cards fade in AND out (both head and tail)
                             FadeRgbMatrix(durationUs, fadeDurationUs, fadeDurationUs, TransitionType.FADE_BLACK),
+                            portraitPresentation,
                         ),
                     ),
                 ).build()
-        }
-
-        private fun portraitPresentation(): Presentation = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT)
-
-        /**
-         * Horizontal pan for landscape photos. Scales so height fills the portrait frame,
-         * then slides left↔right across the overflowing width. Direction alternates by index.
-         */
-        private fun kenBurnsPanHorizontal(
-            durationMs: Long,
-            index: Int,
-            aspectRatio: Float,
-        ): MatrixTransformation {
-            val durationUs = durationMs * 1000L
-            var startUs = -1L
-            val panRange = (aspectRatio - 1f).coerceAtLeast(0f)
-            val startX = if (index % 2 == 0) -panRange else panRange
-            val endX = -startX
-            return MatrixTransformation { presentationTimeUs ->
-                if (startUs < 0L) startUs = presentationTimeUs
-                val progress = ((presentationTimeUs - startUs).toFloat() / durationUs).coerceIn(0f, 1f)
-                val tx = startX + (endX - startX) * progress
-                android.graphics.Matrix().apply {
-                    setScale(aspectRatio, aspectRatio)
-                    postTranslate(tx, 0f)
-                }
-            }
         }
 
         /**

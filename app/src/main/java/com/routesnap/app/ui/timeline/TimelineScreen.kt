@@ -99,7 +99,16 @@ fun TimelineScreen(
             modifier = modifier,
             topBar = {
                 TopAppBar(
-                    title = { Text("Review Timeline") },
+                    title = {
+                        Column {
+                            Text("Timeline")
+                            Text(
+                                text = "Step 2 / 5",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                            )
+                        }
+                    },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Back")

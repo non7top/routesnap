@@ -82,6 +82,37 @@ data class ZoomRect(
             )
 
         fun defaultPair(index: Int): Pair<ZoomRect, ZoomRect> = DEFAULTS[index % DEFAULTS.size]
+
+        /**
+         * Portrait-sized crop windows for landscape photos. Each rect is exactly
+         * (9/16)/photoAspect wide and spans the full photo height, so after
+         * LAYOUT_SCALE_TO_FIT_WITH_CROP the crop fills the portrait frame with no
+         * black bars and no content cut. Animation pans between two positions.
+         */
+        fun defaultLandscapePair(
+            index: Int,
+            photoAspect: Float,
+        ): Pair<ZoomRect, ZoomRect> {
+            val w = (9f / 16f) / photoAspect.coerceAtLeast(1f)
+            // Four canonical pan directions cycling by photo index
+            val (startCx, endCx) =
+                when (index % 4) {
+                    0 -> Pair(0.5f * w, 1f - 0.5f * w)
+                    1 -> Pair(1f - 0.5f * w, 0.5f * w)
+                    2 -> Pair(0.5f, 0.5f * w)
+                    else -> Pair(0.5f, 1f - 0.5f * w)
+                }
+
+            fun cx(c: Float) = ZoomRect((c - w / 2f).coerceIn(0f, 1f - w), 0f, (c + w / 2f).coerceAtMost(1f), 1f)
+            return Pair(cx(startCx), cx(endCx))
+        }
+
+        /** Snap a rect to a portrait-aspect crop window for the given landscape photo aspect. */
+        fun ZoomRect.snapToPortraitCrop(photoAspect: Float): ZoomRect {
+            val w = (9f / 16f) / photoAspect.coerceAtLeast(1f)
+            val cx = ((left + right) / 2f).coerceIn(w / 2f, 1f - w / 2f)
+            return ZoomRect(cx - w / 2f, 0f, cx + w / 2f, 1f)
+        }
     }
 }
 
@@ -164,6 +195,18 @@ enum class RenderStatus {
 }
 
 /**
+ * A single music track in the playlist, with optional trim region and per-track fades.
+ */
+data class MusicTrack(
+    val uri: Uri,
+    val displayName: String = "",
+    val startMs: Long = 0,
+    val endMs: Long = 0,
+    val fadeInMs: Long = 1000,
+    val fadeOutMs: Long = 1000,
+)
+
+/**
  * Complete trip manifest containing all segments and settings
  */
 @Suppress("LongParameterList")
@@ -180,7 +223,8 @@ data class TripManifest(
     val aspectRatio: AspectRatio = AspectRatio.PORTRAIT,
     val template: TemplatePreset = TemplatePreset.BALANCED,
     val transitionOverride: TransitionType? = null,
-    val musicUri: Uri? = null,
+    val musicTracks: List<MusicTrack> = emptyList(),
+    val musicVolumeDb: Float = 0f,
     val status: RenderStatus = RenderStatus.DRAFT,
     val outputPath: String? = null,
 ) {

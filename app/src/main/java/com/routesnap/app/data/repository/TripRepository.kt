@@ -10,6 +10,7 @@ import com.routesnap.app.data.local.TripManifestDao
 import com.routesnap.app.data.local.TripManifestEntity
 import com.routesnap.app.domain.clustering.ClusteringAlgorithm
 import com.routesnap.app.domain.model.AspectRatio
+import com.routesnap.app.domain.model.MusicTrack
 import com.routesnap.app.domain.model.RenderStatus
 import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TransitionType
@@ -86,14 +87,28 @@ class TripRepository(
         }
     }
 
+    data class TripStyle(
+        val template: TemplatePreset,
+        val aspectRatio: AspectRatio,
+        val transitionOverride: TransitionType?,
+        val musicTracks: List<MusicTrack>,
+        val musicVolumeDb: Float,
+    )
+
     suspend fun updateTripStyle(
         tripId: String,
-        template: TemplatePreset,
-        aspectRatio: AspectRatio,
-        transitionOverride: TransitionType?,
+        style: TripStyle,
     ) {
         val trip = getTripById(tripId) ?: return
-        saveTrip(trip.copy(template = template, aspectRatio = aspectRatio, transitionOverride = transitionOverride))
+        saveTrip(
+            trip.copy(
+                template = style.template,
+                aspectRatio = style.aspectRatio,
+                transitionOverride = style.transitionOverride,
+                musicTracks = style.musicTracks,
+                musicVolumeDb = style.musicVolumeDb,
+            ),
+        )
     }
 
     suspend fun updateSegmentZoomRects(
@@ -165,12 +180,23 @@ class TripRepository(
     }
 
     /**
+     * Record the completed render: sets status to COMPLETED and persists the output file path.
+     */
+    suspend fun updateRenderComplete(
+        tripId: String,
+        outputPath: String,
+    ) {
+        val trip = getTripById(tripId) ?: return
+        saveTrip(trip.copy(status = RenderStatus.COMPLETED, outputPath = outputPath))
+    }
+
+    /**
      * Delete a trip, its private photo copies, and the rendered output video.
      */
     suspend fun deleteTrip(tripId: String) {
         val trip = getTripById(tripId)
         withContext(Dispatchers.IO) {
-            projectDir(tripId).deleteRecursively()
+            File(context.filesDir, "projects/$tripId").deleteRecursively()
             trip?.outputPath?.let { path ->
                 File(path).takeIf { it.exists() }?.delete()
                 // Also check cacheDir for videos rendered before the move to cache
@@ -244,7 +270,7 @@ class TripRepository(
         tripId: String,
         segments: List<TripSegment>,
     ): List<TripSegment> {
-        val photosDir = File(projectDir(tripId), "photos").also { it.mkdirs() }
+        val photosDir = File(context.filesDir, "projects/$tripId/photos").also { it.mkdirs() }
         return segments.map { segment ->
             val srcUri = segment.uri
             if (segment.type != com.routesnap.app.domain.model.SegmentType.PHOTO || srcUri == null) {
@@ -263,8 +289,6 @@ class TripRepository(
             }
         }
     }
-
-    private fun projectDir(tripId: String): File = File(context.filesDir, "projects/$tripId")
 
     companion object {
         private const val TAG = "TripRepository"

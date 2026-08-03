@@ -121,7 +121,16 @@ fun ShareScreen(
             modifier = modifier,
             topBar = {
                 TopAppBar(
-                    title = { Text("Share Video") },
+                    title = {
+                        Column {
+                            Text("Share Video")
+                            Text(
+                                text = "Step 5 / 5",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                            )
+                        }
+                    },
                     colors =
                         TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.primary,

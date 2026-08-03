@@ -80,7 +80,14 @@ fun PhotoReviewScreen(
                     title = {
                         val index = uiState.currentIndex
                         val total = uiState.segments.size
-                        Text("Photo ${index + 1} / $total")
+                        Column {
+                            Text("Photo ${index + 1} / $total")
+                            Text(
+                                text = "Step 2 / 5",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                            )
+                        }
                     },
                     navigationIcon = {
                         IconButton(onClick = {
@@ -132,20 +139,25 @@ fun PhotoReviewScreen(
                 // Photo with rect overlays — takes up all remaining space
                 var imageSize by remember { mutableStateOf(IntSize.Zero) }
 
+                // Use the photo's natural aspect ratio so the full image is visible and
+                // ZoomRect 0-1 coords map directly to photo space.
+                // ContentScale.Crop (not Fit) guarantees the image fills the box with no
+                // letterboxing gaps even when pixel rounding causes a tiny aspect mismatch.
+                val photoAspect = uiState.current?.photoAspectRatio ?: (9f / 16f)
+                val boxAspect = if (photoAspect > 1f) photoAspect else 9f / 16f
+
                 Box(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            // Lock to 9:16 so photo fills the box without letterboxing.
-                            // This ensures ZoomRect 0-1 coords match renderer coords exactly.
-                            .aspectRatio(9f / 16f)
+                            .aspectRatio(boxAspect)
                             .onSizeChanged { imageSize = it },
                 ) {
                     uiState.current?.uri?.let { uri ->
                         AsyncImage(
                             model = uri,
                             contentDescription = null,
-                            contentScale = ContentScale.Fit,
+                            contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }

@@ -39,6 +39,7 @@ data class PickerUiState(
     val photosWithGps: Int = 0,
     val totalPhotos: Int = 0,
     val pickerMode: PickerMode = PickerMode.GPS_PRESERVING,
+    val musicTrackNames: List<String> = emptyList(),
 ) {
     val gpsPercentage: Float get() = if (totalPhotos > 0) photosWithGps.toFloat() / totalPhotos else 0f
 
@@ -89,6 +90,7 @@ class PickerViewModel
                     _uiState.value.copy(
                         tripName = trip.name,
                         selectedUris = photoUris,
+                        musicTrackNames = trip.musicTracks.map { it.displayName.ifBlank { it.uri.lastPathSegment ?: "Track" } },
                     )
                 extractMetadataForSelected()
             }

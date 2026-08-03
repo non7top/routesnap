@@ -70,3 +70,4 @@ jobs:
         name: app-${{ inputs.build-type }}-${{ github.run_id }}
         path: ${{ steps.find-apk.outputs.apk_path }}
         if-no-files-found: error
+        compression-level: 0
