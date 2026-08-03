@@ -175,11 +175,11 @@ dependencies {
 
     // Ktlint - Compose rules for lint checks that work with Kotlin 2.0+
     // Replaces broken Android lint detectors (NullSafeMutableLiveData, RememberInComposition)
-    ktlintRuleset("io.nlopez.compose.rules:ktlint:0.6.1")
+    ktlintRuleset("io.nlopez.compose.rules:ktlint:0.6.2")
 
     // Detekt - Compose rules for static analysis (works with Kotlin 2.0+)
     // Complements ktlint (formatting) with deep code analysis
-    detektPlugins("io.nlopez.compose.rules:detekt:0.6.1")
+    detektPlugins("io.nlopez.compose.rules:detekt:0.6.2")
 }
 
 // Ktlint configuration - use ktlint 1.8.0 for compose-rules compatibility
