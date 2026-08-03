@@ -11,6 +11,7 @@ import com.routesnap.app.data.local.TripManifestEntity
 import com.routesnap.app.domain.clustering.ClusteringAlgorithm
 import com.routesnap.app.domain.model.AspectRatio
 import com.routesnap.app.domain.model.RenderStatus
+import com.routesnap.app.domain.model.SegmentOverlay
 import com.routesnap.app.domain.model.TemplatePreset
 import com.routesnap.app.domain.model.TransitionType
 import com.routesnap.app.domain.model.TripManifest
@@ -142,6 +143,21 @@ class TripRepository(
             )
         saveTrip(trip)
         return trip
+    }
+
+    suspend fun updateSegmentOverlay(
+        tripId: String,
+        segmentId: String,
+        overlay: SegmentOverlay?,
+    ) {
+        val trip = getTripById(tripId) ?: return
+        saveTrip(
+            trip.copy(
+                segments = trip.segments.map { seg ->
+                    if (seg.id == segmentId) seg.copy(overlay = overlay) else seg
+                },
+            ),
+        )
     }
 
     suspend fun updateTripName(
