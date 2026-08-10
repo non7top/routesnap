@@ -148,7 +148,7 @@ dependencies {
     // Hilt (Dependency Injection)
     implementation("com.google.dagger:hilt-android:2.59.2")
     ksp("com.google.dagger:hilt-android-compiler:2.59.2")
-    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
+    implementation("androidx.hilt:hilt-navigation-compose:1.4.0")
 
     // Room (Local Database)
     implementation("androidx.room:room-runtime:2.8.4")
